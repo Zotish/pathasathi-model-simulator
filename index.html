@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PathaSathi Model Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap">
+<style>
+/* Layout: a working desk. Sticky lever bar on top, results strip, then one small chart per calculation grouped
+   Volume → Revenue → Costs → Profit, then the live tables and the variable list. Inputs open in a side drawer. */
+:root {
+  --bg: #f4f7f6; --surface: #ffffff; --surface-2: #eef3f1; --ink: #13201c; --ink-2: #4b5a55; --muted: #7d8a85;
+  --line: #dde5e2; --line-2: #c6d1cd; --accent: #0d6e57; --accent-ink: #ffffff; --accent-soft: #dcefe8;
+  --band: #f1f5f3; --band-2: #fafcfb; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
+  --s7: #6250d6; --neg: #e34948; --good: #006300; --good-bg: #dcf3dc; --bad: #b42318; --bad-bg: #fbe3e1;
+  --ghost: #8a9692; --shadow: 0 1px 2px rgba(19,32,28,.06), 0 6px 18px rgba(19,32,28,.06);
+  --f-display: "Manrope", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1412; --surface: #151d1a; --surface-2: #1b2521; --ink: #e6eeeb; --ink-2: #b4c2bd; --muted: #87958f;
+  --line: #24302c; --line-2: #33413c; --accent: #3fb58d; --accent-ink: #06231a; --accent-soft: #173a30;
+  --band: #18211e; --band-2: #141b19; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+  --s7: #9085e9; --neg: #e66767; --good: #3ccf6a; --good-bg: #133a22; --bad: #ff8a80; --bad-bg: #3d1a18;
+  --ghost: #6f7c77; --shadow: 0 1px 2px rgba(0,0,0,.4); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #151d1a; --surface-2: #1b2521; --ink: #e6eeeb; --ink-2: #b4c2bd; --muted: #87958f;
+  --line: #24302c; --line-2: #33413c; --accent: #3fb58d; --accent-ink: #06231a; --accent-soft: #173a30;
+  --band: #18211e; --band-2: #141b19; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+  --s7: #9085e9; --neg: #e66767; --good: #3ccf6a; --good-bg: #133a22; --bad: #ff8a80; --bad-bg: #3d1a18;
+  --ghost: #6f7c77; --shadow: 0 1px 2px rgba(0,0,0,.4); color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1440px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 64px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+h1 { font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+h2 { font-size: 19px; font-weight: 700; }
+h3 { font-size: 13.5px; font-weight: 700; }
+.eyebrow { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.lede { color: var(--ink-2); max-width: 78ch; margin: 6px 0 0; }
+.num { font-variant-numeric: tabular-nums; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+.top > div { min-width: 0; }
+
+/* controls */
+.controls { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px; display: grid; gap: 12px; z-index: 20; }
+@media (min-width: 960px) { .controls { position: sticky; top: env(safe-area-inset-top, 0px); } body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); } }
+.crow { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 9px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 6px 11px; border-radius: 7px; font-weight: 500; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 600; }
+.lbl { font-size: 11.5px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
+.levers { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 16px; }
+.lever { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; min-width: 0; }
+.lever label { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lever output { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.lever input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 0; }
+.tgt { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tgt select, .tgt input, .drawer input, .drawer select, .search { background: var(--surface); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+.tgt select { max-width: 270px; }
+.tgt input { width: 130px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 10px; font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+.pill.ok { background: var(--good-bg); color: var(--good); }
+.pill.no { background: var(--bad-bg); color: var(--bad); }
+.btn { border: 1px solid var(--line-2); background: var(--surface); border-radius: 8px; padding: 6px 11px; font-weight: 500; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn[disabled] { opacity: .45; cursor: default; }
+.spacer { flex: 1 1 auto; }
+.seek { font-size: 12.5px; color: var(--ink-2); }
+.edit-toggle { display: none; }
+@media (pointer: coarse) { .edit-toggle { display: inline-flex; } }
+
+/* KPIs */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0 6px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.kpi .v { font-family: var(--f-display); font-size: 21px; font-weight: 800; letter-spacing: -.01em; margin-top: 2px; }
+.kpi .d { font-size: 12px; margin-top: 2px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.kpi .d.up { color: var(--good); } .kpi .d.down { color: var(--bad); }
+.jump { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 4px; }
+.jump a { text-decoration: none; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface); padding: 4px 10px; border-radius: 999px; font-size: 12.5px; }
+.jump a:hover { color: var(--ink); border-color: var(--line-2); }
+.howto { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--ink-2); margin: 4px 0 0; }
+.howto b { color: var(--ink); }
+
+/* sections + chart cards */
+.sect { margin-top: 30px; scroll-margin-top: 170px; }
+.sect > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 10px; }
+.sect > header p { margin: 0; color: var(--muted); font-size: 12.5px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 8px; min-width: 0; display: grid; gap: 4px; }
+.card.wide { grid-column: span 2; }
+@media (max-width: 700px) { .card.wide { grid-column: auto; } }
+.card .hd { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.card .hd h3 { min-width: 0; }
+.card .val { font-family: var(--f-display); font-weight: 700; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.card .sub { font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.card .sub span { white-space: nowrap; }
+.card .sub .dr { color: var(--accent); font-weight: 500; }
+.card svg { display: block; width: 100%; height: 150px; overflow: visible; }
+.card.wide svg { height: 190px; }
+.card svg.plot { touch-action: pan-y; cursor: crosshair; }
+body.edit-on .card svg.plot { touch-action: none; }
+.card svg.plot.can-drag { cursor: ns-resize; }
+.card svg.plot.dragging { cursor: grabbing; }
+.legend { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11.5px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.ax text { fill: var(--muted); font-size: 10px; font-family: var(--f-body); font-variant-numeric: tabular-nums; }
+.ax line { stroke: var(--line); stroke-width: 1; }
+.ax .zero { stroke: var(--line-2); }
+
+/* tooltip */
+.tip { position: fixed; z-index: 60; pointer-events: none; background: var(--surface); border: 1px solid var(--line-2); border-radius: 9px; box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 8px 10px; font-size: 12.5px; max-width: 280px; }
+.tip .t1 { color: var(--muted); font-size: 11.5px; }
+.tip .t2 { font-family: var(--f-display); font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
+.tip .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.tip .row span:first-child { color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.tip .key { width: 12px; height: 2px; border-radius: 1px; display: inline-block; }
+.tip .drv { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); color: var(--accent); font-weight: 500; }
+
+/* tables */
+.tbox { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+th, td { padding: 6px 9px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 1; }
+thead th { position: sticky; top: 0; background: var(--surface-2); font-weight: 600; color: var(--ink-2); z-index: 2; }
+thead th:first-child { z-index: 3; background: var(--surface-2); }
+tr.grp td { background: var(--band); font-weight: 600; color: var(--ink-2); text-align: left; }
+tr.tot td { font-weight: 700; }
+td.neg { color: var(--bad); }
+.tabs { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+details.more { margin-top: 8px; }
+details.more summary { cursor: pointer; color: var(--accent); font-weight: 500; font-size: 13px; }
+
+/* variables + changes */
+.vars td, .vars th { white-space: normal; text-align: left; vertical-align: top; }
+.vars td:first-child, .vars th:first-child { position: static; }
+.vars td.def { min-width: 240px; max-width: 420px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+.tag.ind { background: var(--accent-soft); color: var(--accent); }
+.tag.dep { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line-2); }
+.tag.ref { background: transparent; color: var(--muted); border: 1px dashed var(--line-2); }
+.vtools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.search { width: 240px; max-width: 100%; }
+.changes ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.changes li { display: flex; flex-wrap: wrap; gap: 4px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 12.5px; }
+.changes li code { color: var(--muted); font-size: 11.5px; }
+.empty { color: var(--muted); font-size: 13px; }
+
+/* drawer */
+.drawer { position: fixed; z-index: 50; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--surface); border-left: 1px solid var(--line-2); box-shadow: -10px 0 40px rgba(0,0,0,.18); display: grid; grid-template-rows: auto 1fr; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.drawer header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.drawer .body { overflow-y: auto; padding: 8px 16px 40px; }
+.drawer h4 { font-family: var(--f-display); font-size: 13px; margin: 18px 0 6px; color: var(--accent); }
+.irow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 7px 0; border-bottom: 1px solid var(--line); align-items: center; }
+.irow .nm { font-size: 12.5px; min-width: 0; }
+.irow .nm small { display: block; color: var(--muted); font-size: 11px; }
+.irow .vals { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.irow input { width: 84px; text-align: right; font-variant-numeric: tabular-nums; padding: 4px 6px; }
+.irow.changed .nm { color: var(--accent); font-weight: 600; }
+.irow input.changed { border-color: var(--accent); background: var(--accent-soft); }
+.irow.ro { opacity: .65; }
+.irow.stack { grid-template-columns: 1fr; }
+.irow.stack .vals { justify-content: flex-start; }
+.yv { display: grid; gap: 1px; font-size: 10.5px; color: var(--muted); text-align: center; }
+.yv input { width: 78px; }
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 45; }
+@media (prefers-reduced-motion: no-preference) { .card svg .mk { transition: none; } }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="eyebrow" id="period">Quarterly business model</div>
+      <h1>PathaSathi Model Simulator</h1>
+      <p class="lede">The same quarterly model as the Excel file, live. Change a lever, an input or the target, or drag any chart, and every chart, table and result works itself out again.</p>
+    </div>
+  </div>
+
+  <section class="controls" id="controls" aria-label="Universal inputs">
+    <div class="crow">
+      <span class="lbl">Scenario</span>
+      <div class="seg" id="scen" role="group" aria-label="Scenario"></div>
+      <span class="spacer"></span>
+      <button class="btn edit-toggle" id="editToggle" aria-pressed="false">Drag to edit: off</button>
+      <button class="btn" id="undo" disabled>Undo</button>
+      <button class="btn" id="reset">Reset to file values</button>
+      <button class="btn primary" id="openInputs">All inputs</button>
+    </div>
+    <div class="levers" id="levers"></div>
+    <div class="crow tgt">
+      <span class="lbl">Target</span>
+      <select id="tMetric" aria-label="Target metric"></select>
+      <input id="tValue" type="number" step="any" aria-label="Target value">
+      <span class="pill" id="tStatus"></span>
+      <span class="seek num" id="tNow"></span>
+      <button class="btn" id="seekBtn">What growth would it take?</button>
+      <span class="seek" id="seekOut"></span>
+    </div>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="Key results"></section>
+  <div class="howto">
+    <span><b>Hover</b> any chart: every chart and table marks the same quarter.</span>
+    <span><b>Drag up or down</b> on a chart: the input behind it changes (shown in green under each title).</span>
+    <span><b>Drag left or right</b> on a stream chart: its start quarter moves.</span>
+    <span>Dashed line = your file's values.</span>
+  </div>
+  <nav class="jump" aria-label="Jump to">
+    <a href="#volume">Volume</a><a href="#revenue">Revenue</a><a href="#costs">Costs</a><a href="#profit">Profit and cash</a>
+    <a href="#tables">Tables</a><a href="#changes">What you changed</a><a href="#variables">Variables</a>
+  </nav>
+
+  <section class="sect" id="volume"><header><h2>Volume</h2><p>Merchants, users, orders and team. Dependent variables, counted each quarter.</p></header><div class="grid" data-sec="volume"></div></section>
+  <section class="sect" id="revenue"><header><h2>Revenue</h2><p>Total, by group, and each of the 18 revenue lines.</p></header><div class="grid" data-sec="revenue"></div></section>
+  <section class="sect" id="costs"><header><h2>Costs</h2><p>Total, by group, and each of the 12 cost lines.</p></header><div class="grid" data-sec="costs"></div></section>
+  <section class="sect" id="profit"><header><h2>Profit and cash</h2><p>Operating profit before tax, cumulative cash and unit economics.</p></header><div class="grid" data-sec="profit"></div></section>
+
+  <section class="sect" id="tables">
+    <header><h2>Tables</h2><p>Live: they change while you drag. Hovering a chart marks the quarter here.</p></header>
+    <div class="tabs seg" role="group" aria-label="Table view"><button id="tabQ" aria-pressed="true">By quarter</button><button id="tabY" aria-pressed="false">By year</button></div>
+    <div class="tbox" id="tq"></div>
+    <div class="tbox" id="ty" hidden></div>
+  </section>
+
+  <section class="sect changes" id="changes">
+    <header><h2>What you changed</h2><p>Every input that differs from your file, with its Excel cell, so you can copy it into the workbook.</p></header>
+    <div class="crow" style="margin-bottom:8px"><button class="btn" id="copyChanges">Copy the list</button><span class="seek" id="copyMsg"></span></div>
+    <ul id="changeList"></ul>
+    <textarea id="copyFallback" hidden readonly style="width:100%;height:120px;margin-top:8px"></textarea>
+  </section>
+
+  <section class="sect" id="variables">
+    <header><h2>Variables</h2><p>Independent variables are the numbers you choose. Dependent variables are calculated from them.</p></header>
+    <div class="vtools">
+      <div class="seg" id="vfilter" role="group" aria-label="Filter variables">
+        <button data-f="all" aria-pressed="true">All</button><button data-f="ind" aria-pressed="false">Independent</button><button data-f="dep" aria-pressed="false">Dependent</button><button data-f="ref" aria-pressed="false">Not used</button>
+      </div>
+      <input class="search" id="vsearch" type="search" placeholder="Search variables" aria-label="Search variables">
+      <span class="seek num" id="vcount"></span>
+    </div>
+    <div class="tbox"><table class="vars" id="vtable"><thead><tr><th>ID</th><th>Variable</th><th>Class</th><th>Unit</th><th>Definition</th><th>How it is calculated / source</th><th>Depends on</th><th>Now</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="All inputs">
+  <header><h2 style="font-size:16px">All inputs</h2><span class="seek">Blue cells of the Excel Inputs sheet</span><span class="spacer"></span><button class="btn" id="closeInputs">Close</button></header>
+  <div class="body" id="drawerBody"></div>
+</aside>
+<div class="tip" id="tip" hidden></div>
+
+<script>window.SPEC = {"inputs":[{"key":"buildQ","label":"Build and beta quarters","kind":"const","value":2,"unit":"quarters","fmt":"0","definition":"Q1 builds the product (Months 1–3); Q2 runs the Queens beta (Months 4–6). Launch is Q3.","note":"Fixed at 2: the Build & beta plan section holds exactly these two quarters.","used":true,"id":"IN01","cell":"Inputs!C6"},{"key":"pop","label":"Bangladeshi people in the USA (2023)","kind":"scalar","value":300000,"unit":"people","fmt":"#,##0;(#,##0);\"-\"","definition":"Everyone of Bangladeshi origin living in the USA.","note":"Pew Research Center, Census Bureau ACS 2023 (from your file).","used":true,"id":"IN02","cell":"Inputs!C10"},{"key":"adultShare","label":"Share who are adults (18+)","kind":"scalar","value":0.7,"unit":"%","fmt":"0.0%","definition":"Part of that population aged 18 or over; the people who could use the app.","note":"Your file: our estimate.","used":true,"id":"IN03","cell":"Inputs!C11"},{"key":"shops","label":"Bangladeshi-owned shops and services in the USA","kind":"scalar","value":5000,"unit":"businesses","fmt":"#,##0;(#,##0);\"-\"","definition":"Businesses that could become PathaSathi merchants.","note":"Your file: our estimate (about 2,000 in NYC).","used":true,"id":"IN04","cell":"Inputs!C12"},{"key":"betaMerchants","label":"Beta merchants (Q2, Queens)","kind":"scalar","value":50,"unit":"merchants","fmt":"#,##0;(#,##0);\"-\"","definition":"Shops that use PathaSathi free during the Q2 beta.","note":"Your file: pilot size.","used":true,"id":"IN05","cell":"Inputs!C16"},{"key":"betaConv","label":"Beta merchants that start paying at launch","kind":"scalar","value":0.8,"unit":"%","fmt":"0.0%","definition":"Share of beta shops that move to a paid plan in the launch month (first month of Q3).","note":"Your file.","used":true,"id":"IN06","cell":"Inputs!C17"},{"key":"newM8","label":"New paid merchants in the 2nd month after launch","kind":"scalar","value":20,"unit":"merchants a month","fmt":"#,##0;(#,##0);\"-\"","definition":"Sign-ups in Month 8, the first month after the beta shops convert.","note":"Your file: Inputs B21.","used":true,"id":"IN07","cell":"Inputs!C18"},{"key":"y1Growth","label":"Monthly growth of new merchants in Year 1","kind":"scalar","value":0.06,"unit":"% a month","fmt":"0.0%","definition":"How fast Year 1 sign-ups grow each month as Sales Executives cover more of NYC. The model adds up the 3 months of each quarter exactly.","note":"Your file: Inputs B22.","used":true,"id":"IN08","cell":"Inputs!C19"},{"key":"newPerMonth","label":"New paid merchants a month (Years 2–5)","kind":"year","value":[null,40,45,45,45],"unit":"merchants a month","fmt":"#,##0;(#,##0);\"-\"","definition":"Sign-ups per month in each later year (NJ, Michigan, then nationwide). A quarter gets 3 months of it.","note":"Your file. Year 1 uses the two rows above.","used":true,"id":"IN09","cell":"Inputs!C20:G20"},{"key":"churn","label":"Merchants who cancel each month","kind":"year","value":[0.04,0.035,0.03,0.03,0.03],"unit":"% a month","fmt":"0.0%","definition":"Monthly cancellation rate of paid merchants, by year. Applied month by month inside each quarter.","note":"Your file: typical small-business software churn.","used":true,"id":"IN10","cell":"Inputs!C21:G21"},{"key":"usersLaunch","label":"Active users in the launch month","kind":"scalar","value":1000,"unit":"users","fmt":"#,##0;(#,##0);\"-\"","definition":"Active users in Month 7 (beta users plus launch invitations).","note":"Your file.","used":true,"id":"IN11","cell":"Inputs!C25"},{"key":"usersEnd","label":"Active users at the end of each year","kind":"year","value":[6000,15000,24000,32000,40000],"unit":"users","fmt":"#,##0;(#,##0);\"-\"","definition":"Year-end active-user targets. Users grow in a straight line between them.","note":"Your file: Year 5 ≈ 19% of today's Bangladeshi adults.","used":true,"id":"IN12","cell":"Inputs!C26:G26"},{"key":"payShare0","label":"Paying users in the launch quarter (share of active)","kind":"scalar","value":0.01,"unit":"%","fmt":"0.0%","definition":"Share of active users on Basic or Pro in the first quarter after launch.","note":"Your file.","used":true,"id":"IN13","cell":"Inputs!C27"},{"key":"payShare1","label":"Paying users when mature (share of active)","kind":"scalar","value":0.04,"unit":"%","fmt":"0.0%","definition":"Share of active users who pay once the app is established.","note":"Your file: freemium apps usually convert 2–5%.","used":true,"id":"IN14","cell":"Inputs!C28"},{"key":"payRampQ","label":"Quarter after launch that reaches the mature share","kind":"scalar","value":4,"unit":"quarters","fmt":"0","definition":"The paying share rises in a straight line from the launch share to the mature share by this quarter after launch.","note":"Your file: Month 18 (end of Year 1) = 4th quarter after launch.","used":true,"id":"IN15","cell":"Inputs!C29"},{"key":"basicShare","label":"Of paying users, share on the Basic plan","kind":"scalar","value":0.75,"unit":"%","fmt":"0.0%","definition":"The rest are on Pro.","note":"Your file.","used":true,"id":"IN16","cell":"Inputs!C30"},{"key":"mBasic","label":"Merchant Basic plan","kind":"scalar","value":19,"unit":"$ a month","fmt":"$#,##0.00;($#,##0.00);\"-\"","definition":"Monthly price of the merchant Basic plan.","note":"Your file (deck: business model).","used":true,"id":"IN17","cell":"Inputs!C34"},{"key":"mPro","label":"Merchant Pro plan","kind":"scalar","value":49,"unit":"$ a month","fmt":"$#,##0.00;($#,##0.00);\"-\"","definition":"Monthly price of the merchant Pro plan.","note":"Your file.","used":true,"id":"IN18","cell":"Inputs!C35"},{"key":"proShare","label":"Share of paid merchants on Pro","kind":"scalar","value":0.35,"unit":"%","fmt":"0.0%","definition":"Merchant plan mix: the rest are on Basic.","note":"Your file: 65% Basic, 35% Pro.","used":true,"id":"IN19","cell":"Inputs!C36"},{"key":"onlineSales","label":"Online sales per paid merchant","kind":"scalar","value":1200,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Customer payments that go through PathaSathi checkout, per merchant.","note":"Your file.","used":true,"id":"IN20","cell":"Inputs!C37"},{"key":"commission","label":"Payment commission","kind":"scalar","value":0.005,"unit":"% of online sales","fmt":"0.00%","definition":"Fee kept on online sales, on top of Stripe's own fee.","note":"Your file.","used":true,"id":"IN21","cell":"Inputs!C38"},{"key":"smsMargin","label":"SMS credit margin per paid merchant","kind":"scalar","value":1.5,"unit":"$ a month","fmt":"$#,##0.00;($#,##0.00);\"-\"","definition":"Margin on bulk SMS resold to merchants.","note":"Your file.","used":true,"id":"IN22","cell":"Inputs!C39"},{"key":"avgOrder","label":"Average online order","kind":"scalar","value":30,"unit":"$","fmt":"$#,##0.00;($#,##0.00);\"-\"","definition":"Used to turn online sales into a number of orders (for the delivery fee).","note":"Your file.","used":true,"id":"IN23","cell":"Inputs!C40"},{"key":"uBasic","label":"User Basic plan","kind":"scalar","value":2.99,"unit":"$ a month","fmt":"$#,##0.00;($#,##0.00);\"-\"","definition":"No ads, unlimited Bangla AI, reminders, no delivery fee.","note":"Your file.","used":true,"id":"IN24","cell":"Inputs!C44"},{"key":"uPro","label":"User Pro plan","kind":"scalar","value":6.99,"unit":"$ a month","fmt":"$#,##0.00;($#,##0.00);\"-\"","definition":"Basic plus family account, document vault, priority expert chat.","note":"Your file.","used":true,"id":"IN25","cell":"Inputs!C45"},{"key":"appFee","label":"App store fee on user plans","kind":"scalar","value":0.15,"unit":"% of user plan revenue","fmt":"0.0%","definition":"Apple and Google small-business rate.","note":"Your file.","used":true,"id":"IN26","cell":"Inputs!C46"},{"key":"adRate","label":"Banner ads per free user","kind":"scalar","value":0.08,"unit":"$ a month","fmt":"$#,##0.00;($#,##0.00);\"-\"","definition":"Ad revenue from each free user per month.","note":"Your file.","used":true,"id":"IN27","cell":"Inputs!C47"},{"key":"adsStartQ","label":"Ads start in quarter","kind":"scalar","value":3,"unit":"model quarter","fmt":"0","definition":"First quarter with banner ads (3 = launch quarter).","note":"Your file: Month 7 = Q3.","used":true,"id":"IN28","cell":"Inputs!C48"},{"key":"dhakaTeam","label":"Dhaka team size after launch","kind":"year","value":[2,3,4,5,6],"unit":"people","fmt":"#,##0;(#,##0);\"-\"","definition":"Developers in Dhaka in each year. Changes the tech-tools cost (each member above 2 adds tools).","note":"Your file.","used":true,"id":"IN30","cell":"Inputs!C69:G69"},{"key":"dhakaPayroll","label":"Dhaka team payroll after launch","kind":"year","value":[2000,2000,2000,2000,2000],"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Monthly salary bill for the Dhaka team in each year. A quarter is 3 months of it.","note":"Your Monthly sheet (row 47) has $2,000 a month typed in for every month after launch, so team size and pay rise do not change it there either.","used":true,"id":"IN31","cell":"Inputs!C70:G70"},{"key":"usRise","label":"US contract rates rise a year","kind":"scalar","value":0.03,"unit":"% a year","fmt":"0.0%","definition":"Yearly increase applied to outsourced finance and sales commission from Year 2.","note":"Your file.","used":true,"id":"IN32","cell":"Inputs!C71"},{"key":"finance","label":"Outsourced finance and compliance","kind":"year","value":[750,1500,1500,1500,1500],"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Bookkeeping, tax, contractor payments and 1099s.","note":"Your file.","used":true,"id":"IN33","cell":"Inputs!C72:G72"},{"key":"commissionPerShop","label":"Sales commission per shop set up","kind":"scalar","value":40,"unit":"$ per shop","fmt":"$#,##0;($#,##0);\"-\"","definition":"Paid to Sales Executives for each new paid merchant.","note":"Your file.","used":true,"id":"IN34","cell":"Inputs!C73"},{"key":"shopsPerSE","label":"New paid shops one Sales Executive handles","kind":"scalar","value":50,"unit":"shops a month","fmt":"#,##0;(#,##0);\"-\"","definition":"Sets how many Sales Executives are needed (headcount only).","note":"Your file. Headcount is shown but has no cost line in your Monthly sheet.","used":true,"id":"IN35","cell":"Inputs!C74"},{"key":"minSE","label":"Minimum Sales Executives after launch","kind":"scalar","value":2,"unit":"people","fmt":"#,##0;(#,##0);\"-\"","definition":"Floor on Sales Executive headcount.","note":"Your file (headcount only).","used":true,"id":"IN36","cell":"Inputs!C75"},{"key":"minVisits","label":"Minimum field visits a month after launch","kind":"scalar","value":100,"unit":"visits","fmt":"#,##0;(#,##0);\"-\"","definition":"Floor on field support visits.","note":"Your file (visits only, no cost line).","used":true,"id":"IN37","cell":"Inputs!C76"},{"key":"visitsPerMerchant","label":"Field visits per paid merchant a month","kind":"scalar","value":0.06,"unit":"visits","fmt":"#,##0.00;(#,##0.00);\"-\"","definition":"Used when it is above the minimum.","note":"Your file.","used":true,"id":"IN38","cell":"Inputs!C77"},{"key":"supportStartYear","label":"Customer support starts in year","kind":"scalar","value":2,"unit":"year after launch","fmt":"0","definition":"First year with hourly support staff.","note":"Your file (hours only, no cost line).","used":true,"id":"IN39","cell":"Inputs!C78"},{"key":"minSupportHours","label":"Minimum support hours a month","kind":"scalar","value":160,"unit":"hours","fmt":"#,##0;(#,##0);\"-\"","definition":"Floor on support hours.","note":"Your file.","used":true,"id":"IN40","cell":"Inputs!C79"},{"key":"supportPerMerchant","label":"Support hours per paid merchant a month","kind":"scalar","value":0.173,"unit":"hours","fmt":"0.000","definition":"Support load from merchants.","note":"Your file.","used":true,"id":"IN41","cell":"Inputs!C80"},{"key":"supportPerUser","label":"Support hours per active user a month","kind":"scalar","value":0.002,"unit":"hours","fmt":"0.000","definition":"Support load from users.","note":"Your file.","used":true,"id":"IN42","cell":"Inputs!C81"},{"key":"toolsBase","label":"Tech tools, base","kind":"scalar","value":150,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"GitHub, Jira, Slack, BrowserStack, AI tools.","note":"Your file.","used":true,"id":"IN43","cell":"Inputs!C85"},{"key":"toolsPerMember","label":"Tech tools per Dhaka member above 2","kind":"scalar","value":50,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Extra tools for each Dhaka developer beyond the first two.","note":"Your file.","used":true,"id":"IN44","cell":"Inputs!C86"},{"key":"serviceData","label":"Service data re-checks (contract)","kind":"year","value":[500,1500,1500,1500,1500],"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Keeping the service directory data up to date.","note":"Your file.","used":true,"id":"IN45","cell":"Inputs!C87:G87"},{"key":"legal","label":"Legal and fintech advisory","kind":"year","value":[2000,2000,3000,3000,3000],"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"US counsel retainer.","note":"Your file.","used":true,"id":"IN46","cell":"Inputs!C88:G88"},{"key":"insurance","label":"Business insurance","kind":"year","value":[400,400,800,800,800],"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"General liability and cyber.","note":"Your file.","used":true,"id":"IN47","cell":"Inputs!C89:G89"},{"key":"gtmFixed","label":"Go-to-market, fixed","kind":"scalar","value":6500,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Ads, community events, Bangla media.","note":"Your file.","used":true,"id":"IN48","cell":"Inputs!C90"},{"key":"gtmPerNew","label":"Go-to-market per new paid merchant","kind":"scalar","value":30,"unit":"$ per merchant","fmt":"$#,##0;($#,##0);\"-\"","definition":"Acquisition cost for each new paid merchant.","note":"Your file.","used":true,"id":"IN49","cell":"Inputs!C91"},{"key":"contingencyRun","label":"Contingency reserve after launch","kind":"scalar","value":1800,"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"Money set aside each quarter for surprises.","note":"Your Monthly sheet adds $3,000 every 5 months after launch ($36,000 over Years 1–5). Spread evenly: $36,000 ÷ 20 quarters = $1,800.","used":true,"id":"IN50","cell":"Inputs!C92"},{"key":"bTeam","label":"Dhaka team (people)","kind":"build","value":[4,2],"unit":"people","fmt":"#,##0;(#,##0);\"-\"","definition":"Developers working in each build quarter.","note":"Your Build Plan: 4 in Months 1–3, 2 in Months 4–6.","used":true,"id":"IN51","cell":"Inputs!C96:D96"},{"key":"bPayroll","label":"Dhaka payroll","kind":"build","value":[7500,6000],"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"Salary bill in each build quarter.","note":"Your Monthly sheet: $2,500 a month in Months 1–3, $2,000 in Months 4–6.","used":true,"id":"IN52","cell":"Inputs!C97:D97"},{"key":"bFinance","label":"Outsourced finance","kind":"build","value":[750,2250],"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"Finance contractor during build.","note":"Your Build Plan: starts Month 3 at $750 a month.","used":true,"id":"IN53","cell":"Inputs!C98:D98"},{"key":"bBetaShops","label":"Beta shops set up","kind":"build","value":[0,50],"unit":"shops","fmt":"#,##0;(#,##0);\"-\"","definition":"Shops set up in each build quarter (each earns the sales commission).","note":"Your Build Plan: 15 + 20 + 15 in Months 4–6.","used":true,"id":"IN54","cell":"Inputs!C99:D99"},{"key":"bTools","label":"Tech tools","kind":"build","value":[900,450],"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"Tools during build.","note":"Your Build Plan: $300 a month, then $150.","used":true,"id":"IN55","cell":"Inputs!C100:D100"},{"key":"bService","label":"Service data collection (contract)","kind":"build","value":[0,5000],"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"First data collection for the services.","note":"Your Build Plan: $1,000 per service, 5 services.","used":true,"id":"IN56","cell":"Inputs!C101:D101"},{"key":"bGtm","label":"Go-to-market","kind":"build","value":[0,12000],"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"Beta launch marketing.","note":"Your Build Plan: $1,500 + $4,000 + $6,500.","used":true,"id":"IN57","cell":"Inputs!C102:D102"},{"key":"bLegal","label":"Legal retainer","kind":"build","value":[6000,6000],"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"US counsel during build.","note":"Your file: $2,000 a month.","used":true,"id":"IN58","cell":"Inputs!C103:D103"},{"key":"bLegalOneOff","label":"Legal one-off: company set-up (Q1)","kind":"scalar","value":0,"unit":"$ once","fmt":"$#,##0;($#,##0);\"-\"","definition":"Delaware C-corp, NY registration, terms, privacy.","note":"Your Build Plan lists $5,000, but your Monthly sheet (which drives profit and cash) leaves it out, so this is 0. Type 5000 to include it.","used":true,"id":"IN59","cell":"Inputs!C104"},{"key":"bInsurance","label":"Business insurance","kind":"build","value":[1200,1200],"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"Insurance during build.","note":"Your Build Plan: $400 a month.","used":true,"id":"IN60","cell":"Inputs!C105:D105"},{"key":"bContingency","label":"Contingency reserve","kind":"build","value":[1500,1500],"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"Reserve during build.","note":"Your Monthly sheet: $3,000 in Month 5, shared over Q1 and Q2.","used":true,"id":"IN61","cell":"Inputs!C106:D106"},{"key":"bSE","label":"Sales Executives (people)","kind":"build","value":[0,2],"unit":"people","fmt":"#,##0;(#,##0);\"-\"","definition":"Sales Executives during build (headcount only).","note":"Your Build Plan: 1, 2, 2 in Months 4–6.","used":true,"id":"IN62","cell":"Inputs!C107:D107"},{"key":"bVisits","label":"Field Support visits","kind":"build","value":[0,100],"unit":"visits","fmt":"#,##0;(#,##0);\"-\"","definition":"Field visits during build (count only).","note":"Your Build Plan: 100 in Month 6.","used":true,"id":"IN63","cell":"Inputs!C108:D108"},{"key":"deals","label":"Brand sponsor deals running","kind":"year","value":[0,1,2,3,4],"unit":"deals","fmt":"#,##0;(#,##0);\"-\"","definition":"Number of brand sponsorship deals running in each year.","note":"Your file: one deal in Year 2, growing to four.","used":true,"id":"IN29","cell":"Inputs!C65:G65"},{"key":"cloud","id":"IN64","label":"Cloud hosting and APIs by quarter","kind":"quarter","value":[100,650,1760,2745,2999,3262,3554,3938,4325,4701,5072,5459,5838,6209,6567,6895,7211,7521,7825,8123,8414,8695],"unit":"$ a quarter","fmt":"$#,##0;($#,##0);\"-\"","definition":"Hosting, maps and AI model cost in each quarter.","note":"Your Monthly sheet row 50, added up by quarter.","used":true,"cell":"Inputs!C112:C133"},{"key":"greenCards","label":"Family green cards to Bangladesh-born people (FY2023)","kind":"scalar","value":8880,"unit":"people a year","fmt":"#,##0;(#,##0);\"-\"","definition":"Context only.","note":"DHS data via Economic Policy Institute (your file).","used":false,"id":"IN65","cell":"Inputs!C137"},{"key":"students","label":"Bangladeshi students in the USA (2023/24)","kind":"scalar","value":17099,"unit":"students","fmt":"#,##0;(#,##0);\"-\"","definition":"Context only.","note":"Open Doors 2024 (your file).","used":false,"id":"IN66","cell":"Inputs!C138"},{"key":"beSalary","label":"Backend Developer salary","kind":"scalar","value":950,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Monthly pay of a backend developer.","note":"In your file only the Build Plan uses it, and the Monthly sheet overrides that with typed-in payroll.","used":false,"id":"IN67","cell":"Inputs!C139"},{"key":"feSalary","label":"Frontend and mobile Developer salary","kind":"scalar","value":700,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Monthly pay of a frontend developer.","note":"Same as above.","used":false,"id":"IN68","cell":"Inputs!C140"},{"key":"fx","label":"Exchange rate","kind":"scalar","value":123,"unit":"BDT per $","fmt":"#,##0;(#,##0);\"-\"","definition":"For the BDT memo only.","note":"Memo only.","used":false,"id":"IN69","cell":"Inputs!C141"},{"key":"extraHire","label":"Cost of each extra Dhaka hire after launch","kind":"scalar","value":900,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Pay of hires beyond the first two.","note":"No formula in your file uses it.","used":false,"id":"IN70","cell":"Inputs!C142"},{"key":"payRise","label":"Dhaka pay rise a year","kind":"scalar","value":0.08,"unit":"% a year","fmt":"0.0%","definition":"Yearly salary increase.","note":"No formula in your file uses it (payroll is typed in).","used":false,"id":"IN71","cell":"Inputs!C143"},{"key":"opsLead","label":"Operations Lead retainer","kind":"scalar","value":3000,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"New York operations lead.","note":"No cost line in your Monthly sheet uses it.","used":false,"id":"IN72","cell":"Inputs!C144"},{"key":"salesShare","label":"Sales revenue share (first 12 months of each shop)","kind":"scalar","value":0.1,"unit":"% of plan","fmt":"0.0%","definition":"Revenue share for Sales Executives.","note":"Counted in your Monthly row 21 but never costed.","used":false,"id":"IN73","cell":"Inputs!C145"},{"key":"supportRate","label":"Customer support hourly rate","kind":"scalar","value":20,"unit":"$ an hour","fmt":"$#,##0;($#,##0);\"-\"","definition":"Pay of hourly support staff.","note":"Support hours are counted but never costed in your file.","used":false,"id":"IN74","cell":"Inputs!C146"},{"key":"partnersStart","label":"Partnerships contractor starts in month","kind":"scalar","value":19,"unit":"model month","fmt":"0","definition":"Start of the partnerships contractor.","note":"No cost line in your file uses it.","used":false,"id":"IN75","cell":"Inputs!C147"},{"key":"partnersCost","label":"Partnerships contractor","kind":"scalar","value":4000,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Retainer plus commission.","note":"No cost line in your file uses it.","used":false,"id":"IN76","cell":"Inputs!C148"},{"key":"cloudFixed","label":"Cloud hosting and APIs, fixed","kind":"scalar","value":2500,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Formula-based cloud cost.","note":"Your Monthly sheet uses typed-in cloud costs instead (section K).","used":false,"id":"IN77","cell":"Inputs!C149"},{"key":"cloudPerMerchant","label":"Cloud cost per paid merchant","kind":"scalar","value":0.5,"unit":"$ a month","fmt":"$#,##0.00;($#,##0.00);\"-\"","definition":"Formula-based cloud cost.","note":"Not used (see above).","used":false,"id":"IN78","cell":"Inputs!C150"},{"key":"cloudPerUser","label":"Cloud cost per active user","kind":"scalar","value":0.02,"unit":"$ a month","fmt":"$#,##0.00;($#,##0.00);\"-\"","definition":"Formula-based cloud cost.","note":"Not used (see above).","used":false,"id":"IN79","cell":"Inputs!C151"},{"key":"meetingSpace","label":"New York meeting space","kind":"year","value":[200,500,500,500,500],"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Meeting room and day passes.","note":"No cost line in your Monthly sheet uses it.","used":false,"id":"IN80","cell":"Inputs!C152:G152"},{"key":"otherSmall","label":"Other small costs","kind":"scalar","value":500,"unit":"$ a month","fmt":"$#,##0;($#,##0);\"-\"","definition":"Miscellaneous.","note":"No cost line in your Monthly sheet uses it.","used":false,"id":"IN81","cell":"Inputs!C153"},{"key":"contingencyPct","label":"Contingency as % of costs","kind":"scalar","value":0.1,"unit":"% of costs","fmt":"0.0%","definition":"Percentage contingency.","note":"Only your Build Plan uses it; the Monthly sheet adds fixed $3,000 amounts instead.","used":false,"id":"IN82","cell":"Inputs!C154"}],"streams":[{"key":"setup","label":"Shop set-up fee","drv":0.2,"price":49,"sq":3,"rq":2,"dc":0.2,"du":"share of new paid merchants","pu":"$ once","base":"newMerchants","id":"IN-S01","cells":{"drv":"Inputs!C52","price":"Inputs!D52","sq":"Inputs!E52","rq":"Inputs!F52","dc":"Inputs!G52"}},{"key":"boost","label":"Boost / sponsored map pin","drv":0.04,"price":40,"sq":4,"rq":2,"dc":0.05,"du":"share of paid merchants","pu":"$ a month","base":"merchantMonths","id":"IN-S02","cells":{"drv":"Inputs!C53","price":"Inputs!D53","sq":"Inputs!E53","rq":"Inputs!F53","dc":"Inputs!G53"}},{"key":"addons","label":"Add-ons: extra staff, 2nd shop, AI credits","drv":0.05,"price":10,"sq":5,"rq":2,"dc":0.05,"du":"share of paid merchants","pu":"$ a month","base":"merchantMonths","id":"IN-S03","cells":{"drv":"Inputs!C54","price":"Inputs!D54","sq":"Inputs!E54","rq":"Inputs!F54","dc":"Inputs!G54"}},{"key":"payout","label":"Instant payout fee","drv":0.1,"price":0.005,"sq":5,"rq":2,"dc":0.0,"du":"share of paid merchants","pu":"% of their online sales","base":"payout","id":"IN-S04","cells":{"drv":"Inputs!C55","price":"Inputs!D55","sq":"Inputs!E55","rq":"Inputs!F55","dc":"Inputs!G55"}},{"key":"leads","label":"Lead plans for professionals","drv":3,"price":120,"sq":7,"rq":2,"dc":0.2,"du":"providers per 1,000 active users","pu":"$ a month","base":"userMonths","id":"IN-S05","cells":{"drv":"Inputs!C56","price":"Inputs!D56","sq":"Inputs!E56","rq":"Inputs!F56","dc":"Inputs!G56"}},{"key":"posts","label":"Job and housing posts","drv":4,"price":29,"sq":4,"rq":2,"dc":0.05,"du":"posts per 1,000 active users a month","pu":"$ a post","base":"userMonths","id":"IN-S06","cells":{"drv":"Inputs!C57","price":"Inputs!D57","sq":"Inputs!E57","rq":"Inputs!F57","dc":"Inputs!G57"}},{"key":"sponsor","label":"Brand sponsorship","drv":null,"price":2000,"sq":7,"rq":2,"dc":0.15,"du":"deals running (row below)","pu":"$ a month per deal","base":"deals","id":"IN-S07","cells":{"drv":"Inputs!C58","price":"Inputs!D58","sq":"Inputs!E58","rq":"Inputs!F58","dc":"Inputs!G58"}},{"key":"delivery","label":"Delivery fee (buyer pays)","drv":0.15,"price":0.99,"sq":4,"rq":2,"dc":0.1,"du":"share of online orders delivered","pu":"$ a delivery","base":"orders","id":"IN-S08","cells":{"drv":"Inputs!C59","price":"Inputs!D59","sq":"Inputs!E59","rq":"Inputs!F59","dc":"Inputs!G59"}},{"key":"affiliate","label":"Affiliate referrals","drv":8,"price":15,"sq":4,"rq":2,"dc":0.0,"du":"sign-ups per 1,000 active users a month","pu":"$ each","base":"userMonths","id":"IN-S09","cells":{"drv":"Inputs!C60","price":"Inputs!D60","sq":"Inputs!E60","rq":"Inputs!F60","dc":"Inputs!G60"}},{"key":"tickets","label":"Event ticket booking fee","drv":10,"price":1.5,"sq":5,"rq":2,"dc":0.1,"du":"tickets per 1,000 active users a month","pu":"$ a ticket","base":"userMonths","id":"IN-S10","cells":{"drv":"Inputs!C61","price":"Inputs!D61","sq":"Inputs!E61","rq":"Inputs!F61","dc":"Inputs!G61"}},{"key":"partner","label":"Partner services commission","drv":3,"price":12,"sq":7,"rq":2,"dc":0.1,"du":"bookings per 1,000 active users a month","pu":"$ each","base":"userMonths","id":"IN-S11","cells":{"drv":"Inputs!C62","price":"Inputs!D62","sq":"Inputs!E62","rq":"Inputs!F62","dc":"Inputs!G62"}},{"key":"classified","label":"Classified bump and featured profile","drv":5,"price":2.99,"sq":7,"rq":2,"dc":0.1,"du":"bumps per 1,000 active users a month","pu":"$ each","base":"userMonths","id":"IN-S12","cells":{"drv":"Inputs!C63","price":"Inputs!D63","sq":"Inputs!E63","rq":"Inputs!F63","dc":"Inputs!G63"}}],"levers":[{"key":"mMult","label":"Merchant volume multiplier","presets":{"Conservative":0.75,"Base":1.0,"Optimistic":1.25,"Custom":1.0},"what":"Every new paid merchant (beta conversions and later sign-ups).","id":"U2","cell":"Control Panel!F8"},{"key":"uMult","label":"User volume multiplier","presets":{"Conservative":0.75,"Base":1.0,"Optimistic":1.25,"Custom":1.0},"what":"Every active-user number, so paying users, ads and user-driven streams too.","id":"U3","cell":"Control Panel!F9"},{"key":"pMult","label":"Price multiplier","presets":{"Conservative":0.9,"Base":1.0,"Optimistic":1.05,"Custom":1.0},"what":"Every price and fee: merchant and user plans, commission, SMS, ads and the 12 other streams.","id":"U4","cell":"Control Panel!F10"},{"key":"cMult","label":"Cost multiplier","presets":{"Conservative":1.1,"Base":1.0,"Optimistic":0.95,"Custom":1.0},"what":"Every cost line except the app store fee and direct costs, which follow revenue.","id":"U5","cell":"Control Panel!F11"},{"key":"chMult","label":"Churn multiplier","presets":{"Conservative":1.25,"Base":1.0,"Optimistic":0.8,"Custom":1.0},"what":"Every monthly merchant cancellation rate.","id":"U6","cell":"Control Panel!F12"}],"targets":[{"metric":"Revenue in Year 5 ($)","dir":">="},{"metric":"Revenue, Years 1–5 ($)","dir":">="},{"metric":"Cumulative profit at Q22 ($)","dir":">="},{"metric":"Paid merchants at Q22","dir":">="},{"metric":"Active users at Q22","dir":">="},{"metric":"First profitable quarter (Q number, at or before)","dir":"<="},{"metric":"Payback quarter (Q number, at or before)","dir":"<="},{"metric":"Funding needed ($, at most)","dir":"<="}],"target_default":["Revenue in Year 5 ($)",1000000],"dependents":[{"key":"q","id":"DV01","label":"Quarter number","unit":"","definition":"Model quarter, 1 to 22 (66 months).","how":"Fixed sequence.","deps":[],"group":"Timeline","total":null},{"key":"qlabel","id":"DV02","label":"Quarter","unit":"","definition":"Short name of the quarter used on every chart.","how":"\"Q\" & quarter number.","deps":["DV01"],"group":"Timeline","total":null},{"key":"qstart","id":"DV03","label":"Quarter starts","unit":"date","definition":"Calendar month the quarter begins.","how":"Start date + 3 months per quarter.","deps":["DV01"],"group":"Timeline","total":null},{"key":"phase","id":"DV04","label":"Phase","unit":"","definition":"Build (Q1–Q2) or Run (after launch).","how":"Build while quarter ≤ build quarters.","deps":["IN01","DV01"],"group":"Timeline","total":null},{"key":"qa","id":"DV05","label":"Quarter after launch","unit":"","definition":"1 = launch quarter (Q3); 0 during build.","how":"Quarter − build quarters, never below 0.","deps":["IN01","DV01"],"group":"Timeline","total":null},{"key":"yr","id":"DV06","label":"Year after launch (0 = build)","unit":"","definition":"Year 1 = Q3–Q6, Year 5 = Q19–Q22.","how":"Every 4 quarters after launch is one year.","deps":["DV05"],"group":"Timeline","total":null},{"key":"usf","id":"DV07","label":"US rate factor","unit":"× Year 1","definition":"How much US contract rates have risen since Year 1.","how":"(1 + yearly rise) ^ (year − 1).","deps":["IN32","DV06"],"group":"Timeline","total":null},{"key":"newM","id":"DV08","label":"New paid merchants","unit":"merchants","definition":"Merchants who start paying during the quarter.","how":"Year 1: beta conversions in the launch quarter + the 3 months of sign-ups growing each month. Years 2–5: 3 × monthly sign-ups. × merchant multiplier.","deps":["IN06","IN05","U2","IN07","IN09","DV05","IN08","DV06"],"group":"Volume","total":"sum"},{"key":"churnRate","id":"DV09","label":"Monthly churn rate","unit":"% a month","definition":"Share of paid merchants who cancel each month in this quarter.","how":"This year's churn × churn multiplier.","deps":["U6","IN10","DV06"],"group":"Volume","total":null},{"key":"pmStart","id":"DV10","label":"Paid merchants, start of quarter","unit":"merchants","definition":"Paid merchants carried in from the previous quarter.","how":"Previous quarter's end.","deps":[],"group":"Volume","total":null},{"key":"pmEnd","id":"DV11","label":"Paid merchants, end of quarter","unit":"merchants","definition":"Paying merchants at the end of the quarter.","how":"Start × (1 − churn)³ + new merchants joining evenly over the 3 months, each losing churn for the months left.","deps":["DV09","DV08","DV10"],"group":"Volume","total":"end"},{"key":"mMonths","id":"DV12","label":"Merchant-months in quarter","unit":"merchant-months","definition":"Sum of the three month-end merchant counts; every monthly merchant fee is earned on this.","how":"Month-by-month merchant count inside the quarter, added up.","deps":["DV09","DV08","DV10"],"group":"Volume","total":"sum"},{"key":"pmAvg","id":"DV13","label":"Average paid merchants","unit":"merchants","definition":"Average paid merchants in the quarter.","how":"Merchant-months ÷ 3.","deps":["DV12"],"group":"Volume","total":null},{"key":"usersEnd","id":"DV14","label":"Active users, end of quarter","unit":"users","definition":"Active users at the end of the quarter.","how":"Straight line between the year-end targets (Year 1 from the launch-month users). × user multiplier.","deps":["DV05","U3","IN11","DV06"],"group":"Volume","total":"end"},{"key":"usersAvg","id":"DV15","label":"Average active users","unit":"users","definition":"Average active users in the quarter (the middle month on the straight line).","how":"Same line, read at the quarter's middle month.","deps":["DV05","U3","DV14","IN11","DV06"],"group":"Volume","total":null},{"key":"payShare","id":"DV16","label":"Paying share of active users","unit":"%","definition":"Share of active users on Basic or Pro.","how":"Rises in a straight line from the launch share to the mature share by the chosen quarter.","deps":["IN15","IN13","IN14","DV05"],"group":"Volume","total":null},{"key":"basicUsers","id":"DV17","label":"Users on Basic plan (average)","unit":"users","definition":"Paying users on the Basic plan.","how":"Average users × paying share × Basic share.","deps":["IN16","DV16","DV15"],"group":"Volume","total":null},{"key":"proUsers","id":"DV18","label":"Users on Pro plan (average)","unit":"users","definition":"Paying users on the Pro plan.","how":"Average users × paying share × (1 − Basic share).","deps":["IN16","DV16","DV15"],"group":"Volume","total":null},{"key":"freeUsers","id":"DV19","label":"Free users (average)","unit":"users","definition":"Users who do not pay and see banner ads.","how":"Average users − Basic − Pro.","deps":["DV17","DV18","DV15"],"group":"Volume","total":null},{"key":"payingEnd","id":"DV20","label":"Paying users, end of quarter","unit":"users","definition":"Basic + Pro users at the end of the quarter.","how":"End users × paying share.","deps":["DV16","DV14"],"group":"Volume","total":"end"},{"key":"orders","id":"DV21","label":"Online orders","unit":"orders","definition":"Orders paid through PathaSathi checkout in the quarter.","how":"Merchant-months × online sales ÷ average order.","deps":["IN23","DV12","IN20"],"group":"Volume","total":"sum"},{"key":"team","id":"DV22","label":"Dhaka team","unit":"people","definition":"Developers in Dhaka.","how":"Build plan in Q1–Q2, then the team size for the year.","deps":["IN51","IN30","DV04","DV01","DV06"],"group":"Volume","total":"end"},{"key":"se","id":"DV23","label":"Sales Executives needed (no cost line)","unit":"people","definition":"Sales Executives needed for the sign-ups. Headcount only: your Monthly sheet has no cost line for it.","how":"Build plan, then the larger of the minimum and monthly sign-ups ÷ shops per Executive (rounded up).","deps":["IN62","IN36","DV08","DV04","DV01","IN35"],"group":"Volume","total":"end"},{"key":"visits","id":"DV24","label":"Field Support visits (no cost line)","unit":"visits","definition":"Field visits to merchants in the quarter. Count only: no cost line in your file.","how":"3 × the larger of the monthly minimum and visits per merchant × average merchants.","deps":["IN63","IN37","DV04","DV13","DV01","IN38"],"group":"Volume","total":"sum"},{"key":"support","id":"DV25","label":"Customer support hours (no cost line)","unit":"hours","definition":"Support hours needed in the quarter. Hours only: no cost line in your file.","how":"From the start year: 3 × the larger of the minimum and the merchant + user load.","deps":["IN40","DV04","DV13","IN41","IN42","IN39","DV15","DV06"],"group":"Volume","total":"sum"},{"key":"ramp_setup","id":"DV26","label":"Ramp: Shop set-up fee","unit":"share","definition":"How far shop set-up fee has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["DV01","IN-S01·ramp","IN-S01·start"],"group":"Ramp","total":null},{"key":"ramp_boost","id":"DV27","label":"Ramp: Boost / sponsored map pin","unit":"share","definition":"How far boost / sponsored map pin has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["IN-S02·ramp","IN-S02·start","DV01"],"group":"Ramp","total":null},{"key":"ramp_addons","id":"DV28","label":"Ramp: Add-ons: extra staff, 2nd shop, AI credits","unit":"share","definition":"How far add-ons: extra staff, 2nd shop, ai credits has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["IN-S03·ramp","IN-S03·start","DV01"],"group":"Ramp","total":null},{"key":"ramp_payout","id":"DV29","label":"Ramp: Instant payout fee","unit":"share","definition":"How far instant payout fee has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["IN-S04·ramp","IN-S04·start","DV01"],"group":"Ramp","total":null},{"key":"ramp_leads","id":"DV30","label":"Ramp: Lead plans for professionals","unit":"share","definition":"How far lead plans for professionals has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["IN-S05·ramp","IN-S05·start","DV01"],"group":"Ramp","total":null},{"key":"ramp_posts","id":"DV31","label":"Ramp: Job and housing posts","unit":"share","definition":"How far job and housing posts has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["IN-S06·ramp","IN-S06·start","DV01"],"group":"Ramp","total":null},{"key":"ramp_sponsor","id":"DV32","label":"Ramp: Brand sponsorship","unit":"share","definition":"How far brand sponsorship has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["DV01","IN-S07·ramp","IN-S07·start"],"group":"Ramp","total":null},{"key":"ramp_delivery","id":"DV33","label":"Ramp: Delivery fee (buyer pays)","unit":"share","definition":"How far delivery fee (buyer pays) has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["IN-S08·ramp","IN-S08·start","DV01"],"group":"Ramp","total":null},{"key":"ramp_affiliate","id":"DV34","label":"Ramp: Affiliate referrals","unit":"share","definition":"How far affiliate referrals has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["IN-S09·ramp","IN-S09·start","DV01"],"group":"Ramp","total":null},{"key":"ramp_tickets","id":"DV35","label":"Ramp: Event ticket booking fee","unit":"share","definition":"How far event ticket booking fee has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["DV01","IN-S10·ramp","IN-S10·start"],"group":"Ramp","total":null},{"key":"ramp_partner","id":"DV36","label":"Ramp: Partner services commission","unit":"share","definition":"How far partner services commission has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["IN-S11·ramp","IN-S11·start","DV01"],"group":"Ramp","total":null},{"key":"ramp_classified","id":"DV37","label":"Ramp: Classified bump and featured profile","unit":"share","definition":"How far classified bump and featured profile has grown towards full size in this quarter.","how":"Average of the 3 months: (months since start) ÷ (ramp quarters × 3), between 0 and 1.","deps":["IN-S12·ramp","IN-S12·start","DV01"],"group":"Ramp","total":null},{"key":"adsOn","id":"DV38","label":"Banner ads running","unit":"1 = yes","definition":"Whether banner ads are shown in this quarter.","how":"1 from the ads start quarter.","deps":["IN28","DV01"],"group":"Ramp","total":null},{"key":"rPlans","id":"DV39","label":"Merchant plans (Basic / Pro)","unit":"US$","definition":"Monthly plan fees from paid merchants.","how":"Merchant-months × average plan price × price multiplier.","deps":["IN17","DV12","IN18","U4","IN19"],"group":"Merchants core","total":"sum"},{"key":"rComm","id":"DV40","label":"Payment commission","unit":"US$","definition":"Commission on merchants' online sales.","how":"Merchant-months × online sales × commission × price multiplier.","deps":["IN21","DV12","IN20","U4"],"group":"Merchants core","total":"sum"},{"key":"rSms","id":"DV41","label":"SMS credits","unit":"US$","definition":"Margin on SMS credits.","how":"Merchant-months × SMS margin × price multiplier.","deps":["DV12","U4","IN22"],"group":"Merchants core","total":"sum"},{"key":"rSetup","id":"DV42","label":"Shop set-up fee","unit":"US$","definition":"One-off set-up fees from new merchants.","how":"New merchants × take-up × fee × price multiplier × ramp.","deps":["DV08","U4","DV26","IN-S01·driver","IN-S01·price"],"group":"Merchants extras","total":"sum"},{"key":"rBoost","id":"DV43","label":"Boost / sponsored map pin","unit":"US$","definition":"Sponsored map pins bought by merchants.","how":"Merchant-months × take-up × price × price multiplier × ramp.","deps":["IN-S02·driver","IN-S02·price","DV12","U4","DV27"],"group":"Merchants extras","total":"sum"},{"key":"rAddons","id":"DV44","label":"Add-ons (staff, 2nd shop, AI credits)","unit":"US$","definition":"Paid add-ons for merchants.","how":"Merchant-months × take-up × price × price multiplier × ramp.","deps":["IN-S03·driver","IN-S03·price","DV12","U4","DV28"],"group":"Merchants extras","total":"sum"},{"key":"rPayout","id":"DV45","label":"Instant payout fee","unit":"US$","definition":"Fee on same-day payouts.","how":"Merchant-months × take-up × online sales × fee % × price multiplier × ramp.","deps":["DV12","IN20","U4","IN-S04·driver","IN-S04·price","DV29"],"group":"Merchants extras","total":"sum"},{"key":"rUBasic","id":"DV46","label":"User Basic plan","unit":"US$","definition":"Subscriptions to the user Basic plan.","how":"3 × Basic users × price × price multiplier.","deps":["DV17","U4","IN24"],"group":"Users and partners","total":"sum"},{"key":"rUPro","id":"DV47","label":"User Pro plan","unit":"US$","definition":"Subscriptions to the user Pro plan.","how":"3 × Pro users × price × price multiplier.","deps":["U4","DV18","IN25"],"group":"Users and partners","total":"sum"},{"key":"rAds","id":"DV48","label":"Banner ads (free users)","unit":"US$","definition":"Ad revenue from free users.","how":"3 × free users × ad rate × price multiplier, once ads run.","deps":["IN27","DV38","DV19","U4"],"group":"Users and partners","total":"sum"},{"key":"rDelivery","id":"DV49","label":"Delivery fee (buyer pays)","unit":"US$","definition":"Delivery fees paid by non-paying buyers.","how":"Orders × share delivered × fee × price multiplier × (1 − paying share) × ramp.","deps":["IN-S08·driver","IN-S08·price","DV21","U4","DV16","DV33"],"group":"Users and partners","total":"sum"},{"key":"rAffiliate","id":"DV50","label":"Affiliate referrals","unit":"US$","definition":"Referral fees paid by partners.","how":"3 × average users ÷ 1,000 × sign-ups × fee × price multiplier × ramp.","deps":["IN-S09·driver","IN-S09·price","U4","DV34","DV15"],"group":"Users and partners","total":"sum"},{"key":"rTickets","id":"DV51","label":"Event ticket booking fee","unit":"US$","definition":"Booking fees on event tickets.","how":"3 × average users ÷ 1,000 × tickets × fee × price multiplier × ramp.","deps":["U4","DV35","IN-S10·driver","IN-S10·price","DV15"],"group":"Users and partners","total":"sum"},{"key":"rPartner","id":"DV52","label":"Partner services commission","unit":"US$","definition":"Commission on partner services.","how":"3 × average users ÷ 1,000 × bookings × commission × price multiplier × ramp.","deps":["U4","IN-S11·driver","IN-S11·price","DV36","DV15"],"group":"Users and partners","total":"sum"},{"key":"rClassified","id":"DV53","label":"Classified bump and featured profile","unit":"US$","definition":"Paid bumps on classified posts.","how":"3 × average users ÷ 1,000 × bumps × price × price multiplier × ramp.","deps":["IN-S12·driver","IN-S12·price","U4","DV37","DV15"],"group":"Users and partners","total":"sum"},{"key":"rLeads","id":"DV54","label":"Lead plans for professionals","unit":"US$","definition":"Monthly lead plans bought by professionals.","how":"3 × average users ÷ 1,000 × providers × price × price multiplier × ramp.","deps":["IN-S05·driver","IN-S05·price","U4","DV30","DV15"],"group":"Providers and brands","total":"sum"},{"key":"rPosts","id":"DV55","label":"Job and housing posts","unit":"US$","definition":"Paid job and housing posts.","how":"3 × average users ÷ 1,000 × posts × price × price multiplier × ramp.","deps":["U4","IN-S06·driver","IN-S06·price","DV31","DV15"],"group":"Providers and brands","total":"sum"},{"key":"rSponsor","id":"DV56","label":"Brand sponsorship","unit":"US$","definition":"Brand sponsorship deals.","how":"Deals running × monthly price × 3 × price multiplier × ramp.","deps":["IN29","U4","DV32","IN-S07·price","DV06"],"group":"Providers and brands","total":"sum"},{"key":"revTotal","id":"DV57","label":"Total revenue","unit":"US$","definition":"All revenue in the quarter.","how":"Sum of the 18 revenue lines.","deps":[],"group":"Revenue","total":"sum"},{"key":"gCore","id":"DV58","label":"Merchants core","unit":"US$","definition":"Revenue from the merchants core group.","how":"Sum of its lines: Merchant plans (Basic / Pro), Payment commission, SMS credits.","deps":["DV40","DV39","DV41"],"group":"Revenue group","total":"sum"},{"key":"gExtra","id":"DV59","label":"Merchants extras","unit":"US$","definition":"Revenue from the merchants extras group.","how":"Sum of its lines: Shop set-up fee, Boost / sponsored map pin, Add-ons (staff, 2nd shop, AI credits), Instant payout fee.","deps":["DV44","DV43","DV45","DV42"],"group":"Revenue group","total":"sum"},{"key":"gUsers","id":"DV60","label":"Users and partners","unit":"US$","definition":"Revenue from the users and partners group.","how":"Sum of its lines: User Basic plan, User Pro plan, Banner ads (free users), Delivery fee (buyer pays), Affiliate referrals, Event ticket booking fee, Partner services commission, Classified bump and featured profile.","deps":["DV48","DV50","DV53","DV49","DV52","DV51","DV46","DV47"],"group":"Revenue group","total":"sum"},{"key":"gProv","id":"DV61","label":"Providers and brands","unit":"US$","definition":"Revenue from the providers and brands group.","how":"Sum of its lines: Lead plans for professionals, Job and housing posts, Brand sponsorship.","deps":["DV54","DV55","DV56"],"group":"Revenue group","total":"sum"},{"key":"cDhaka","id":"DV62","label":"Dhaka payroll","unit":"US$","definition":"Salaries of the Dhaka tech team.","how":"Build plan in Q1–Q2; then 3 × monthly payroll for the year. × cost multiplier.","deps":["IN52","U5","IN31","DV04","DV01","DV06"],"group":"Dhaka team","total":"sum"},{"key":"cFinance","id":"DV63","label":"Outsourced finance and compliance","unit":"US$","definition":"Bookkeeping, tax and compliance contractor.","how":"Build plan; then 3 × monthly fee × US rate factor. × cost multiplier.","deps":["IN53","U5","IN33","DV04","DV01","DV07","DV06"],"group":"New York team","total":"sum"},{"key":"cComm","id":"DV64","label":"Sales commission per shop","unit":"US$","definition":"Commission paid for each shop set up.","how":"Beta shops × commission in build; then new merchants × commission × US rate factor. × cost multiplier.","deps":["IN54","U5","IN34","DV08","DV04","DV01","DV07"],"group":"New York team","total":"sum"},{"key":"cCloud","id":"DV65","label":"Cloud hosting and APIs","unit":"US$","definition":"Hosting, maps and AI model.","how":"Quarterly cloud schedule × cost multiplier.","deps":["U5","IN64","DV01"],"group":"Operating","total":"sum"},{"key":"cTools","id":"DV66","label":"Tech tools","unit":"US$","definition":"Software tools for the team.","how":"Build plan; then 3 × (base + per member above 2). × cost multiplier.","deps":["IN55","U5","DV04","DV01","DV22","IN43","IN44"],"group":"Operating","total":"sum"},{"key":"cService","id":"DV67","label":"Service data (contract)","unit":"US$","definition":"Collecting and re-checking service data.","how":"Build plan; then 3 × monthly fee for the year. × cost multiplier.","deps":["IN56","U5","DV04","DV01","IN45","DV06"],"group":"Operating","total":"sum"},{"key":"cGtm","id":"DV68","label":"Go-to-market","unit":"US$","definition":"Marketing and merchant acquisition.","how":"Build plan; then 3 × fixed + cost per new merchant × new merchants. × cost multiplier.","deps":["IN57","U5","IN48","IN49","DV08","DV04","DV01"],"group":"Operating","total":"sum"},{"key":"cLegal","id":"DV69","label":"Legal and fintech advisory","unit":"US$","definition":"US counsel retainer (and the optional set-up one-off).","how":"Build plan (+ one-off in Q1); then 3 × monthly retainer. × cost multiplier.","deps":["IN58","IN59","U5","IN46","DV04","DV01","DV06"],"group":"Operating","total":"sum"},{"key":"cIns","id":"DV70","label":"Business insurance","unit":"US$","definition":"General liability and cyber insurance.","how":"Build plan; then 3 × monthly premium. × cost multiplier.","deps":["IN60","U5","IN47","DV04","DV01","DV06"],"group":"Operating","total":"sum"},{"key":"cCont","id":"DV71","label":"Contingency","unit":"US$","definition":"Reserve for surprises.","how":"Build plan; then the reserve per quarter. × cost multiplier.","deps":["IN61","U5","IN50","DV04","DV01"],"group":"Contingency","total":"sum"},{"key":"cAppFee","id":"DV72","label":"App store fee on user plans","unit":"US$","definition":"Apple and Google fee on user subscriptions.","how":"(User Basic + User Pro revenue) × app store fee.","deps":["IN26","DV46","DV47"],"group":"Direct costs","total":"sum"},{"key":"cDirect","id":"DV73","label":"Direct costs of other streams","unit":"US$","definition":"Costs that come with each of the 12 other streams.","how":"Each stream's revenue × its direct cost %.","deps":["IN-S03·direct cost","IN-S09·direct cost","IN-S02·direct cost","IN-S12·direct cost","IN-S08·direct cost","IN-S05·direct cost","IN-S11·direct cost","IN-S04·direct cost","IN-S06·direct cost","DV44","DV50","DV43","DV53","DV49","DV54","DV52","DV45","DV55","DV42","DV56","DV51","IN-S01·direct cost","IN-S07·direct cost","IN-S10·direct cost"],"group":"Direct costs","total":"sum"},{"key":"costTotal","id":"DV74","label":"Total costs","unit":"US$","definition":"All costs in the quarter.","how":"Sum of the 12 cost lines.","deps":[],"group":"Costs","total":"sum"},{"key":"gcDhaka","id":"DV75","label":"Dhaka team","unit":"US$","definition":"Costs in the dhaka team group.","how":"Sum of its lines: Dhaka payroll.","deps":["DV62"],"group":"Cost group","total":"sum"},{"key":"gcNY","id":"DV76","label":"New York team","unit":"US$","definition":"Costs in the new york team group.","how":"Sum of its lines: Outsourced finance and compliance, Sales commission per shop.","deps":["DV64","DV63"],"group":"Cost group","total":"sum"},{"key":"gcOps","id":"DV77","label":"Operating","unit":"US$","definition":"Costs in the operating group.","how":"Sum of its lines: Cloud hosting and APIs, Tech tools, Service data (contract), Go-to-market, Legal and fintech advisory, Business insurance.","deps":["DV65","DV68","DV70","DV69","DV67","DV66"],"group":"Cost group","total":"sum"},{"key":"gcCont","id":"DV78","label":"Contingency","unit":"US$","definition":"Costs in the contingency group.","how":"Sum of its lines: Contingency.","deps":["DV71"],"group":"Cost group","total":"sum"},{"key":"gcDirect","id":"DV79","label":"Direct costs","unit":"US$","definition":"Costs in the direct costs group.","how":"Sum of its lines: App store fee on user plans, Direct costs of other streams.","deps":["DV72","DV73"],"group":"Cost group","total":"sum"},{"key":"profit","id":"DV80","label":"Profit / loss","unit":"US$","definition":"Operating profit before tax in the quarter.","how":"Total revenue − total costs.","deps":["DV74","DV57"],"group":"Profit and cash","total":"sum"},{"key":"margin","id":"DV81","label":"Profit margin","unit":"%","definition":"Profit as a share of revenue.","how":"Profit ÷ revenue (0 when there is no revenue).","deps":["DV80","DV57"],"group":"Profit and cash","total":null},{"key":"cash","id":"DV82","label":"Cumulative cash","unit":"US$","definition":"Running total of profit since Q1; its lowest point is the funding needed.","how":"Previous cumulative cash + this quarter's profit.","deps":["DV80"],"group":"Profit and cash","total":"end"},{"key":"beHelp","id":"DV83","label":"Break-even check (quarter if profitable)","unit":"helper","definition":"Helper: the quarter number when profit is 0 or more after launch, else 9999.","how":"Used to find the first profitable quarter.","deps":["DV80","DV01","DV05"],"group":"Profit and cash","total":null},{"key":"pbHelp","id":"DV84","label":"Payback check (quarter if cash positive)","unit":"helper","definition":"Helper: the quarter number when cumulative cash is 0 or more after launch, else 9999.","how":"Used to find the payback quarter.","deps":["DV82","DV01","DV05"],"group":"Profit and cash","total":null},{"key":"kRevMerchant","id":"DV85","label":"Core revenue per paid merchant a month","unit":"$ a month","definition":"What one paid merchant brings in each month from plans, commission and SMS.","how":"Merchants core revenue ÷ merchant-months.","deps":["DV58","DV12"],"group":"Checks","total":null},{"key":"kArpu","id":"DV86","label":"User and partner revenue per active user a month","unit":"$ a month","definition":"Average monthly revenue from each active user (users and partners group).","how":"Users and partners revenue ÷ (3 × average users).","deps":["DV60","DV15"],"group":"Checks","total":null},{"key":"kUserReach","id":"DV87","label":"Active users as share of Bangladeshi adults","unit":"%","definition":"How much of the community the app reaches.","how":"End users ÷ (population × adult share).","deps":["IN03","IN02","DV14"],"group":"Checks","total":"end"},{"key":"kMerchReach","id":"DV88","label":"Paid merchants as share of Bangladeshi shops","unit":"%","definition":"How many Bangladeshi businesses pay for PathaSathi.","how":"End paid merchants ÷ shops.","deps":["DV11","IN04"],"group":"Checks","total":"end"}]};</script>
+<script>// PathaSathi quarterly model engine. Mirrors the formulas of the Quarterly sheet in
+// PathaSathi_Quarterly_Business_Model.xlsx one for one (same order, same maths).
+var PathaEngine = (function () {
+  var N = 22;
+  var STREAM_KEYS = ["setup", "boost", "addons", "payout", "leads", "posts", "sponsor", "delivery", "affiliate", "tickets", "partner", "classified"];
+  var REV = ["rPlans", "rComm", "rSms", "rSetup", "rBoost", "rAddons", "rPayout", "rUBasic", "rUPro", "rAds", "rDelivery", "rAffiliate", "rTickets", "rPartner", "rClassified", "rLeads", "rPosts", "rSponsor"];
+  var COST = ["cDhaka", "cFinance", "cComm", "cCloud", "cTools", "cService", "cGtm", "cLegal", "cIns", "cCont", "cAppFee", "cDirect"];
+  var GROUPS = { gCore: ["rPlans", "rComm", "rSms"], gExtra: ["rSetup", "rBoost", "rAddons", "rPayout"],
+    gUsers: ["rUBasic", "rUPro", "rAds", "rDelivery", "rAffiliate", "rTickets", "rPartner", "rClassified"], gProv: ["rLeads", "rPosts", "rSponsor"] };
+  var CGROUPS = { gcDhaka: ["cDhaka"], gcNY: ["cFinance", "cComm"], gcOps: ["cCloud", "cTools", "cService", "cGtm", "cLegal", "cIns"], gcCont: ["cCont"], gcDirect: ["cAppFee", "cDirect"] };
+  var DIRECT = [["rSetup", "setup"], ["rBoost", "boost"], ["rAddons", "addons"], ["rPayout", "payout"], ["rLeads", "leads"], ["rPosts", "posts"],
+    ["rSponsor", "sponsor"], ["rDelivery", "delivery"], ["rAffiliate", "affiliate"], ["rTickets", "tickets"], ["rPartner", "partner"], ["rClassified", "classified"]];
+  var KEYS = ["q", "qa", "yr", "usf", "newM", "churnRate", "pmStart", "pmEnd", "mMonths", "pmAvg", "usersEnd", "usersAvg", "payShare", "basicUsers", "proUsers",
+    "freeUsers", "payingEnd", "orders", "team", "se", "visits", "support", "adsOn"]
+    .concat(STREAM_KEYS.map(function (k) { return "ramp_" + k; }))
+    .concat(REV, ["revTotal", "gCore", "gExtra", "gUsers", "gProv"], COST, ["costTotal", "gcDhaka", "gcNY", "gcOps", "gcCont", "gcDirect"],
+      ["profit", "margin", "cash", "beHelp", "pbHelp", "kRevMerchant", "kArpu", "kUserReach", "kMerchReach"]);
+
+  function clamp01(x) { return Math.min(1, Math.max(0, x)); }
+
+  function run(P, L) {
+    var R = {};
+    KEYS.forEach(function (k) { R[k] = new Array(N).fill(0); });
+    var bq = P.buildQ, prevEnd = 0, prevCash = 0, S = P.streams;
+    for (var i = 0; i < N; i++) {
+      var q = i + 1, build = q <= bq;
+      var qa = Math.max(0, q - bq);
+      var yr = qa === 0 ? 0 : Math.floor((qa - 1) / 4) + 1;
+      var usf = yr <= 1 ? 1 : Math.pow(1 + P.usRise, yr - 1);
+      // volume
+      var newM = 0;
+      if (qa > 0) {
+        if (yr === 1) {
+          var g = P.y1Growth, a = Math.max(0, 3 * qa - 4), b = 3 * qa - 2;
+          var sum = g === 0 ? (b - a + 1) : (Math.pow(1 + g, b + 1) - Math.pow(1 + g, a)) / g;
+          newM = (qa === 1 ? P.betaMerchants * P.betaConv : 0) + P.newM8 * sum;
+        } else newM = 3 * P.newPerMonth[yr - 1];
+        newM *= L.mMult;
+      }
+      var churn = yr === 0 ? 0 : Math.min(0.99, P.churn[yr - 1] * L.chMult);
+      var d = 1 - churn;
+      var pmStart = prevEnd;
+      var pmEnd = pmStart * Math.pow(d, 3) + newM / 3 * (1 + d + d * d);
+      var mm = pmStart * (d + d * d + d * d * d) + newM / 3 * (3 + 2 * d + d * d);
+      var pmAvg = mm / 3;
+      var uEnd = 0, uAvg = 0, T = P.usersEnd;
+      if (qa > 0) {
+        if (yr === 1) {
+          uEnd = P.usersLaunch + (T[0] - P.usersLaunch) * (3 * qa - 1) / 11;
+          uAvg = P.usersLaunch + (T[0] - P.usersLaunch) * (3 * qa - 2) / 11;
+        } else {
+          uEnd = T[yr - 2] + (T[yr - 1] - T[yr - 2]) * (3 * qa - 12 * (yr - 1)) / 12;
+          uAvg = T[yr - 2] + (T[yr - 1] - T[yr - 2]) * (3 * qa - 1 - 12 * (yr - 1)) / 12;
+        }
+        uEnd *= L.uMult; uAvg *= L.uMult;
+      }
+      var ps = qa === 0 ? 0 : P.payShare0 + (P.payShare1 - P.payShare0) * Math.min(1, (qa - 1) / Math.max(1, P.payRampQ - 1));
+      var basic = uAvg * ps * P.basicShare, pro = uAvg * ps * (1 - P.basicShare), free = uAvg - basic - pro;
+      var orders = mm * P.onlineSales / P.avgOrder;
+      var team = build ? P.bTeam[q - 1] : P.dhakaTeam[yr - 1];
+      var se = build ? P.bSE[q - 1] : Math.max(P.minSE, Math.ceil(newM / 3 / P.shopsPerSE - 1e-12));
+      var visits = build ? P.bVisits[q - 1] : 3 * Math.max(P.minVisits, P.visitsPerMerchant * pmAvg);
+      var support = (build || yr < P.supportStartYear) ? 0 : 3 * Math.max(P.minSupportHours, P.supportPerMerchant * pmAvg + P.supportPerUser * uAvg);
+      var ramp = {};
+      STREAM_KEYS.forEach(function (k) {
+        var s = S[k], den = Math.max(1, 3 * s.rq), t = 0;
+        for (var j = 1; j <= 3; j++) t += clamp01((3 * (q - s.sq) + j) / den);
+        ramp[k] = t / 3;
+      });
+      var adsOn = q >= P.adsStartQ ? 1 : 0;
+      // revenue
+      var pm = L.pMult, usersK = 3 * uAvg / 1000;
+      var r = {};
+      r.rPlans = mm * (P.mBasic * (1 - P.proShare) + P.mPro * P.proShare) * pm;
+      r.rComm = mm * P.onlineSales * P.commission * pm;
+      r.rSms = mm * P.smsMargin * pm;
+      r.rSetup = newM * S.setup.drv * S.setup.price * pm * ramp.setup;
+      r.rBoost = mm * S.boost.drv * S.boost.price * pm * ramp.boost;
+      r.rAddons = mm * S.addons.drv * S.addons.price * pm * ramp.addons;
+      r.rPayout = mm * S.payout.drv * P.onlineSales * S.payout.price * pm * ramp.payout;
+      r.rUBasic = 3 * basic * P.uBasic * pm;
+      r.rUPro = 3 * pro * P.uPro * pm;
+      r.rAds = 3 * free * P.adRate * pm * adsOn;
+      r.rDelivery = orders * S.delivery.drv * S.delivery.price * pm * (1 - ps) * ramp.delivery;
+      ["affiliate", "tickets", "partner", "classified", "leads", "posts"].forEach(function (k) {
+        r["r" + k.charAt(0).toUpperCase() + k.slice(1)] = usersK * S[k].drv * S[k].price * pm * ramp[k];
+      });
+      r.rSponsor = (yr === 0 ? 0 : P.deals[yr - 1]) * S.sponsor.price * 3 * pm * ramp.sponsor;
+      var revTotal = 0; REV.forEach(function (k) { revTotal += r[k]; });
+      // costs
+      var cm = L.cMult, c = {};
+      c.cDhaka = (build ? P.bPayroll[q - 1] : 3 * P.dhakaPayroll[yr - 1]) * cm;
+      c.cFinance = (build ? P.bFinance[q - 1] : 3 * P.finance[yr - 1] * usf) * cm;
+      c.cComm = (build ? P.bBetaShops[q - 1] * P.commissionPerShop : newM * P.commissionPerShop * usf) * cm;
+      c.cCloud = P.cloud[q - 1] * cm;
+      c.cTools = (build ? P.bTools[q - 1] : 3 * (P.toolsBase + P.toolsPerMember * Math.max(0, team - 2))) * cm;
+      c.cService = (build ? P.bService[q - 1] : 3 * P.serviceData[yr - 1]) * cm;
+      c.cGtm = (build ? P.bGtm[q - 1] : 3 * P.gtmFixed + P.gtmPerNew * newM) * cm;
+      c.cLegal = (build ? P.bLegal[q - 1] + (q === 1 ? P.bLegalOneOff : 0) : 3 * P.legal[yr - 1]) * cm;
+      c.cIns = (build ? P.bInsurance[q - 1] : 3 * P.insurance[yr - 1]) * cm;
+      c.cCont = (build ? P.bContingency[q - 1] : P.contingencyRun) * cm;
+      c.cAppFee = (r.rUBasic + r.rUPro) * P.appFee;
+      c.cDirect = 0; DIRECT.forEach(function (x) { c.cDirect += r[x[0]] * S[x[1]].dc; });
+      var costTotal = 0; COST.forEach(function (k) { costTotal += c[k]; });
+      var profit = revTotal - costTotal, cash = prevCash + profit;
+      // store
+      var o = {
+        q: q, qa: qa, yr: yr, usf: usf, newM: newM, churnRate: churn, pmStart: pmStart, pmEnd: pmEnd, mMonths: mm, pmAvg: pmAvg,
+        usersEnd: uEnd, usersAvg: uAvg, payShare: ps, basicUsers: basic, proUsers: pro, freeUsers: free, payingEnd: uEnd * ps,
+        orders: orders, team: team, se: se, visits: visits, support: support, adsOn: adsOn, revTotal: revTotal, costTotal: costTotal,
+        profit: profit, margin: revTotal === 0 ? 0 : profit / revTotal, cash: cash,
+        beHelp: (qa > 0 && profit >= 0) ? q : 9999, pbHelp: (qa > 0 && cash >= 0) ? q : 9999
+      };
+      STREAM_KEYS.forEach(function (k) { o["ramp_" + k] = ramp[k]; });
+      REV.forEach(function (k) { o[k] = r[k]; });
+      COST.forEach(function (k) { o[k] = c[k]; });
+      Object.keys(GROUPS).forEach(function (g) { o[g] = GROUPS[g].reduce(function (s, k) { return s + r[k]; }, 0); });
+      Object.keys(CGROUPS).forEach(function (g) { o[g] = CGROUPS[g].reduce(function (s, k) { return s + c[k]; }, 0); });
+      o.kRevMerchant = mm === 0 ? 0 : o.gCore / mm;
+      o.kArpu = uAvg === 0 ? 0 : o.gUsers / (3 * uAvg);
+      o.kUserReach = uEnd / (P.pop * P.adultShare);
+      o.kMerchReach = pmEnd / P.shops;
+      KEYS.forEach(function (k) { R[k][i] = o[k]; });
+      prevEnd = pmEnd; prevCash = cash;
+    }
+    return R;
+  }
+
+  var FLOW = { newM: 1, mMonths: 1, orders: 1, visits: 1, support: 1, profit: 1 };
+  REV.concat(COST, Object.keys(GROUPS), Object.keys(CGROUPS), ["revTotal", "costTotal"]).forEach(function (k) { FLOW[k] = 1; });
+
+  // Yearly: [build, y1..y5, years1-5, all]  (flows summed; stocks at year end)
+  function yearly(R, key, bq) {
+    var out = [0, 0, 0, 0, 0, 0, 0, 0];
+    if (FLOW[key]) {
+      for (var i = 0; i < N; i++) out[R.yr[i]] += R[key][i];
+      out[6] = out[1] + out[2] + out[3] + out[4] + out[5];
+      out[7] = out[6] + out[0];
+    } else {
+      for (var y = 0; y <= 5; y++) out[y] = R[key][bq + 4 * y - 1];
+      out[6] = null; out[7] = null;
+    }
+    return out;
+  }
+
+  function summary(R, P) {
+    var bq = P.buildQ, minCash = Infinity, minAt = 0, be = 9999, pb = 9999;
+    for (var i = 0; i < N; i++) {
+      if (R.cash[i] < minCash) { minCash = R.cash[i]; minAt = i + 1; }
+      be = Math.min(be, R.beHelp[i]); pb = Math.min(pb, R.pbHelp[i]);
+    }
+    var rev = yearly(R, "revTotal", bq);
+    return {
+      buildCost: R.costTotal.slice(0, bq).reduce(function (a, b) { return a + b; }, 0),
+      launchCost: R.costTotal[bq],
+      funding: -Math.min(0, minCash), lowestQ: minAt,
+      breakEvenQ: be === 9999 ? null : be, paybackQ: pb === 9999 ? null : pb,
+      revY5: rev[5], revY15: rev[6], costAll: yearly(R, "costTotal", bq)[7],
+      cumProfit: R.cash[N - 1], pmEnd: R.pmEnd[N - 1], usersEnd: R.usersEnd[N - 1], payingEnd: R.payingEnd[N - 1],
+      userReach: R.kUserReach[N - 1], merchReach: R.kMerchReach[N - 1]
+    };
+  }
+
+  function targetResult(sum, metricIndex) {
+    switch (metricIndex) {
+      case 0: return sum.revY5;
+      case 1: return sum.revY15;
+      case 2: return sum.cumProfit;
+      case 3: return sum.pmEnd;
+      case 4: return sum.usersEnd;
+      case 5: return sum.breakEvenQ == null ? 99 : sum.breakEvenQ;
+      case 6: return sum.paybackQ == null ? 99 : sum.paybackQ;
+      case 7: return sum.funding;
+    }
+  }
+
+  return { run: run, yearly: yearly, summary: summary, targetResult: targetResult, N: N, KEYS: KEYS, REV: REV, COST: COST,
+    GROUPS: GROUPS, CGROUPS: CGROUPS, STREAM_KEYS: STREAM_KEYS, FLOW: FLOW };
+})();
+if (typeof module !== "undefined") module.exports = PathaEngine;
+</script>
+<script>
+(function () {
+"use strict";
+var E = PathaEngine, SPEC = window.SPEC, N = 22, BQ = 2;
+var STORE_KEY = "pathasathi-sim-v1";
+
+// ───────── state ─────────
+function defaults() {
+  var P = { streams: {} };
+  SPEC.inputs.forEach(function (it) { P[it.key] = Array.isArray(it.value) ? it.value.slice() : it.value; });
+  SPEC.streams.forEach(function (s) { P.streams[s.key] = { drv: s.drv == null ? 0 : s.drv, price: s.price, sq: s.sq, rq: s.rq, dc: s.dc }; });
+  var presets = {}, custom = {};
+  SPEC.levers.forEach(function (l) { custom[l.key] = l.presets.Custom; presets[l.key] = l.presets; });
+  var ti = 0; SPEC.targets.forEach(function (t, i) { if (t.metric === SPEC.target_default[0]) ti = i; });
+  return { P: P, custom: custom, presets: presets, scenario: "Base", start: "2027-01", target: { i: ti, v: SPEC.target_default[1] } };
+}
+var DEF = defaults();
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+var S = clone(DEF);
+try { var saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); if (saved && saved.P && saved.P.streams && saved.custom) S = Object.assign(clone(DEF), saved); } catch (e) {}
+function levers(st) { var o = {}; SPEC.levers.forEach(function (l) { o[l.key] = st.scenario === "Custom" ? st.custom[l.key] : st.presets[l.key][st.scenario]; }); return o; }
+function compute(st) { var R = E.run(st.P, levers(st)); return { R: R, sum: E.summary(R, st.P) }; }
+var BASE = compute(DEF), CUR = compute(S);
+
+// ───────── paths ─────────
+function getPath(st, path) {
+  var p = path.split(".");
+  if (p[0] === "L") return levers(st)[p[1]];
+  var o = st.P; for (var i = 1; i < p.length; i++) o = o[p[i]]; return o;
+}
+function setPath(st, path, v) {
+  var p = path.split(".");
+  if (p[0] === "L") { if (st.scenario !== "Custom") { st.custom = levers(st); st.scenario = "Custom"; } st.custom[p[1]] = v; return; }
+  var o = st.P; for (var i = 1; i < p.length - 1; i++) o = o[p[i]]; o[p[p.length - 1]] = v;
+}
+function expand(paths) {
+  var out = [];
+  paths.forEach(function (p) {
+    if (p.slice(-2) === ".*") { var base = p.slice(0, -2), arr = getPath(DEF, base); for (var i = 0; i < arr.length; i++) if (arr[i] != null) out.push(base + "." + i); }
+    else out.push(p);
+  });
+  return out;
+}
+
+// ───────── formatting ─────────
+function money(v, dp) {
+  if (v == null || !isFinite(v)) return "–";
+  var a = Math.abs(v), s = v < 0 ? "−" : "";
+  if (a >= 1e6) return s + "$" + (a / 1e6).toFixed(2) + "M";
+  if (a >= 1e4) return s + "$" + (a / 1e3).toFixed(1) + "K";
+  if (dp != null) return s + "$" + a.toFixed(dp);
+  return s + "$" + Math.round(a).toLocaleString("en-US");
+}
+function count(v) { if (v == null || !isFinite(v)) return "–"; var a = Math.abs(v); return a < 10 && a % 1 !== 0 ? v.toFixed(2) : Math.round(v).toLocaleString("en-US"); }
+function pct(v, dp) { return v == null || !isFinite(v) ? "–" : (v * 100).toFixed(dp == null ? 1 : dp) + "%"; }
+function mult(v) { return v.toFixed(2) + "×"; }
+function fmtUnit(u, v) {
+  if (u === "$") return money(v); if (u === "$2") return money(v, 2); if (u === "%") return pct(v); if (u === "%2") return pct(v, 2);
+  if (u === "x") return mult(v); if (u === "q") return "Q" + Math.round(v); if (u === "y") return "Year " + Math.round(v); return count(v);
+}
+function axisFmt(u, v) {
+  if (u === "%") return Math.round(v * 100) + "%";
+  var a = Math.abs(v), s = v < 0 ? "−" : "", pre = (u === "$" || u === "$2") ? "$" : "";
+  if (a >= 1e6) return s + pre + (a / 1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
+  if (a >= 1e3) return s + pre + (a / 1e3).toFixed(a >= 1e4 ? 0 : 1) + "K";
+  return s + pre + (a < 10 && a % 1 ? a.toFixed(1) : Math.round(a));
+}
+var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function qStart(q) { var y = +S.start.slice(0, 4), m = +S.start.slice(5, 7) - 1 + 3 * (q - 1); return { y: y + Math.floor(m / 12), m: m % 12 }; }
+function qCal(q) { var a = qStart(q), b = qStart(q); var em = (a.m + 2) % 12, ey = a.y + Math.floor((a.m + 2) / 12); return MONTHS[a.m] + (ey !== a.y ? " " + a.y : "") + "–" + MONTHS[em] + " " + ey; }
+function yrOf(q) { return q <= BQ ? 0 : Math.floor((q - BQ - 1) / 4) + 1; }
+function yrName(y) { return y === 0 ? "Build and beta" : "Year " + y; }
+
+// ───────── drivers ─────────
+// mode abs: x is the input value. mode scale: x multiplies every path's value at drag start.
+function A(label, path, unit, lo, hi, extra) { return Object.assign({ label: label, paths: [path], mode: "abs", unit: unit, lo: lo, hi: hi }, extra || {}); }
+function Sc(label, paths, show) { return { label: label, paths: expand(paths), mode: "scale", lo: 0, hi: 6, show: show }; }
+function streamPrice(k) { var s = SPEC.streams.filter(function (x) { return x.key === k; })[0]; var pctPrice = s.price < 0.1; return A(s.label + ": price", "P.streams." + k + ".price", pctPrice ? "%2" : "$2", 0, pctPrice ? 0.1 : Math.max(s.price * 6, 10)); }
+function streamStart(k) { return A("start quarter", "P.streams." + k + ".sq", "q", BQ + 1, N, { int: true, perQ: 1 }); }
+var CORE_PRICES = ["P.mBasic", "P.mPro", "P.commission", "P.smsMargin"];
+var EXTRA_PRICES = ["P.streams.setup.price", "P.streams.boost.price", "P.streams.addons.price", "P.streams.payout.price"];
+var USER_PRICES = ["P.uBasic", "P.uPro", "P.adRate", "P.streams.delivery.price", "P.streams.affiliate.price", "P.streams.tickets.price", "P.streams.partner.price", "P.streams.classified.price"];
+var PROV_PRICES = ["P.streams.leads.price", "P.streams.posts.price", "P.streams.sponsor.price"];
+var OPS = ["P.cloud.*", "P.bTools.*", "P.toolsBase", "P.toolsPerMember", "P.serviceData.*", "P.bService.*", "P.gtmFixed", "P.gtmPerNew", "P.bGtm.*", "P.legal.*", "P.bLegal.*", "P.insurance.*", "P.bInsurance.*"];
+var DIRECTS = ["P.appFee"].concat(E.STREAM_KEYS.map(function (k) { return "P.streams." + k + ".dc"; }));
+function byYear(label, key, unit, lo, hi, bkey, extra) {
+  return function (q) { var y = yrOf(q); if (y === 0) return bkey ? A(label + ", " + "Q" + q + " (build plan)", "P." + bkey + "." + (q - 1), bkey === "bTeam" || bkey === "bSE" || bkey === "bVisits" || bkey === "bBetaShops" ? "n" : "$", 0, hi * 3, extra) : null;
+    return A(label + ", Year " + y, "P." + key + "." + (y - 1), unit, lo, hi, extra); };
+}
+function buildOr(label, bkey, runDrv) { return function (q) { return yrOf(q) === 0 ? A(label + ", Q" + q + " (build plan)", "P." + bkey + "." + (q - 1), "$", 0, 200000) : runDrv; }; }
+
+// ───────── chart catalogue: one per calculation ─────────
+var C1 = "var(--s1)", C2 = "var(--s2)", C3 = "var(--s3)", C4 = "var(--s4)", C5 = "var(--s5)";
+var CH = [];
+function add(o) { CH.push(o); }
+add({ id: "newM", sec: "volume", title: "New paid merchants", keys: ["newM"], type: "bar", unit: "n", color: C1, tot: "sum",
+  hint: "that year's sign-ups", v: function (q) { var y = yrOf(q); if (y === 0) return null; if (y === 1) return A("New paid merchants in Month 8 (Year 1)", "P.newM8", "n", 0, 2000); return A("New paid merchants a month, Year " + y, "P.newPerMonth." + (y - 1), "n", 0, 5000); } });
+add({ id: "pmEnd", sec: "volume", title: "Paid merchants, end of quarter", keys: ["pmEnd"], type: "line", unit: "n", color: C1, tot: "end", target: 3,
+  hint: "that year's churn (up = fewer cancel)", v: byYear("Monthly churn", "churn", "%", 0, 0.3) });
+add({ id: "usersEnd", sec: "volume", title: "Active users, end of quarter", keys: ["usersEnd"], type: "line", unit: "n", color: C1, tot: "end", target: 4,
+  hint: "that year's user target", v: byYear("Active users at end", "usersEnd", "n", 0, 2000000) });
+add({ id: "paying", sec: "volume", title: "Paying users: Basic and Pro (average)", keys: ["basicUsers", "proUsers"], names: ["Basic", "Pro"], colors: [C1, C2], type: "stack", unit: "n", tot: "none",
+  hint: "paying share", hhint: "quarters to mature share",
+  v: function (q) { var qa = q - BQ; if (qa < 1) return null; return qa === 1 ? A("Paying share in the launch quarter", "P.payShare0", "%", 0, 0.5) : A("Paying share when mature", "P.payShare1", "%", 0, 0.5); },
+  h: A("quarter after launch that reaches the mature share", "P.payRampQ", "n", 1, 16, { int: true, perQ: 1 }) });
+add({ id: "orders", sec: "volume", title: "Online orders", keys: ["orders"], type: "bar", unit: "n", color: C1, tot: "sum",
+  hint: "online sales per merchant", v: function (q) { return yrOf(q) ? A("Online sales per paid merchant (a month)", "P.onlineSales", "$", 0, 50000) : null; } });
+add({ id: "team", sec: "volume", title: "Dhaka team", keys: ["team"], type: "bar", unit: "n", color: C1, tot: "end",
+  hint: "team size (changes tech tools)", v: byYear("Dhaka team size", "dhakaTeam", "n", 0, 80, "bTeam", { int: true }) });
+add({ id: "se", sec: "volume", title: "Sales Executives needed (no cost line)", keys: ["se"], type: "bar", unit: "n", color: C1, tot: "end",
+  hint: "shops one Executive handles", v: function (q) { return yrOf(q) ? A("New paid shops one Sales Executive handles", "P.shopsPerSE", "n", 1, 1000) : A("Sales Executives, Q" + q + " (build plan)", "P.bSE." + (q - 1), "n", 0, 50, { int: true }); } });
+add({ id: "visits", sec: "volume", title: "Field Support visits (no cost line)", keys: ["visits"], type: "bar", unit: "n", color: C1, tot: "sum",
+  hint: "visits per merchant", v: function (q) { return yrOf(q) ? A("Field visits per paid merchant a month", "P.visitsPerMerchant", "n", 0, 3) : A("Field visits, Q" + q + " (build plan)", "P.bVisits." + (q - 1), "n", 0, 5000); } });
+add({ id: "support", sec: "volume", title: "Customer support hours (no cost line)", keys: ["support"], type: "bar", unit: "n", color: C1, tot: "sum",
+  hint: "hours per merchant", hhint: "start year", v: function (q) { return yrOf(q) ? A("Support hours per paid merchant a month", "P.supportPerMerchant", "n", 0, 3) : null; },
+  h: A("customer support start year", "P.supportStartYear", "y", 1, 6, { int: true, perQ: 4 }) });
+
+add({ id: "revTotal", sec: "revenue", title: "Total revenue", keys: ["revTotal"], type: "area", unit: "$", color: C3, tot: "sum", wide: true, target: 0,
+  hint: "price multiplier (every price)", v: function (q) { return yrOf(q) ? A("Price multiplier", "L.pMult", "x", 0.05, 4) : null; } });
+var RG = { gCore: Sc("Merchants core prices", CORE_PRICES), gExtra: Sc("Merchant extras prices", EXTRA_PRICES), gUsers: Sc("User and partner prices", USER_PRICES), gProv: Sc("Provider and brand prices", PROV_PRICES) };
+add({ id: "revGroups", sec: "revenue", title: "Revenue by group", keys: ["gCore", "gExtra", "gUsers", "gProv"], names: ["Merchants core", "Merchants extras", "Users and partners", "Providers and brands"],
+  colors: [C1, C2, C3, C4], type: "stack", unit: "$", tot: "sum", wide: true, hint: "the group you grab (its prices)",
+  vSeg: function (key, q) { return yrOf(q) ? RG[key] : null; } });
+var STREAM_CH = [
+  ["rPlans", "Merchant plans (Basic / Pro)", function () { return Sc("Merchant plan prices", ["P.mBasic", "P.mPro"], "P.mBasic"); }, null],
+  ["rComm", "Payment commission", function () { return A("Payment commission", "P.commission", "%2", 0, 0.05); }, null],
+  ["rSms", "SMS credits", function () { return A("SMS margin per merchant", "P.smsMargin", "$2", 0, 20); }, null],
+  ["rSetup", "Shop set-up fee", function () { return streamPrice("setup"); }, "setup"],
+  ["rBoost", "Boost / sponsored map pin", function () { return streamPrice("boost"); }, "boost"],
+  ["rAddons", "Add-ons (staff, 2nd shop, AI credits)", function () { return streamPrice("addons"); }, "addons"],
+  ["rPayout", "Instant payout fee", function () { return streamPrice("payout"); }, "payout"],
+  ["rUBasic", "User Basic plan", function () { return A("User Basic price", "P.uBasic", "$2", 0, 40); }, null],
+  ["rUPro", "User Pro plan", function () { return A("User Pro price", "P.uPro", "$2", 0, 60); }, null],
+  ["rAds", "Banner ads (free users)", function () { return A("Ad revenue per free user", "P.adRate", "$2", 0, 1.5); }, "ads"],
+  ["rDelivery", "Delivery fee (buyer pays)", function () { return streamPrice("delivery"); }, "delivery"],
+  ["rAffiliate", "Affiliate referrals", function () { return streamPrice("affiliate"); }, "affiliate"],
+  ["rTickets", "Event ticket booking fee", function () { return streamPrice("tickets"); }, "tickets"],
+  ["rPartner", "Partner services commission", function () { return streamPrice("partner"); }, "partner"],
+  ["rClassified", "Classified bump and featured profile", function () { return streamPrice("classified"); }, "classified"],
+  ["rLeads", "Lead plans for professionals", function () { return streamPrice("leads"); }, "leads"],
+  ["rPosts", "Job and housing posts", function () { return streamPrice("posts"); }, "posts"],
+  ["rSponsor", "Brand sponsorship", function () { return streamPrice("sponsor"); }, "sponsor"]
+];
+STREAM_CH.forEach(function (s) {
+  var d = s[2](), hz = s[3] === "ads" ? A("ads start quarter", "P.adsStartQ", "q", BQ + 1, N, { int: true, perQ: 1 }) : s[3] ? streamStart(s[3]) : null;
+  add({ id: s[0], sec: "revenue", title: s[1], keys: [s[0]], type: "area", unit: "$", color: C3, tot: "sum",
+    hint: d.label.replace(/^.*: /, "").toLowerCase(), hhint: hz ? hz.label : null, v: function (q) { return yrOf(q) ? d : null; }, h: hz });
+});
+
+add({ id: "costTotal", sec: "costs", title: "Total costs", keys: ["costTotal"], type: "area", unit: "$", color: C2, tot: "sum", wide: true,
+  hint: "cost multiplier (every cost line)", v: function () { return A("Cost multiplier", "L.cMult", "x", 0.05, 4); } });
+var CG = { gcDhaka: Sc("Dhaka payroll (all periods)", ["P.dhakaPayroll.*", "P.bPayroll.*"]), gcNY: Sc("New York team costs", ["P.finance.*", "P.bFinance.*", "P.commissionPerShop"]),
+  gcOps: Sc("Operating costs", OPS), gcCont: Sc("Contingency", ["P.contingencyRun", "P.bContingency.*"]), gcDirect: Sc("Direct cost rates", DIRECTS) };
+add({ id: "costGroups", sec: "costs", title: "Costs by group", keys: ["gcDhaka", "gcNY", "gcOps", "gcCont", "gcDirect"], names: ["Dhaka team", "New York team", "Operating", "Contingency", "Direct costs"],
+  colors: [C1, C2, C3, C4, C5], type: "stack", unit: "$", tot: "sum", wide: true, hint: "the group you grab", vSeg: function (key) { return CG[key]; } });
+var COST_CH = [
+  ["cDhaka", "Dhaka payroll", byYear("Dhaka payroll a month", "dhakaPayroll", "$", 0, 200000, "bPayroll")],
+  ["cFinance", "Outsourced finance and compliance", byYear("Outsourced finance a month", "finance", "$", 0, 50000, "bFinance")],
+  ["cComm", "Sales commission per shop", function (q) { return yrOf(q) ? A("Sales commission per shop", "P.commissionPerShop", "$", 0, 1000) : A("Beta shops set up, Q" + q, "P.bBetaShops." + (q - 1), "n", 0, 2000, { int: true }); }],
+  ["cCloud", "Cloud hosting and APIs", function (q) { return A("Cloud cost, Q" + q, "P.cloud." + (q - 1), "$", 0, 200000); }],
+  ["cTools", "Tech tools", buildOr("Tech tools", "bTools", A("Tech tools base a month", "P.toolsBase", "$", 0, 10000))],
+  ["cService", "Service data (contract)", byYear("Service data a month", "serviceData", "$", 0, 50000, "bService")],
+  ["cGtm", "Go-to-market", buildOr("Go-to-market", "bGtm", A("Go-to-market fixed a month", "P.gtmFixed", "$", 0, 200000))],
+  ["cLegal", "Legal and fintech advisory", byYear("Legal retainer a month", "legal", "$", 0, 50000, "bLegal")],
+  ["cIns", "Business insurance", byYear("Insurance a month", "insurance", "$", 0, 20000, "bInsurance")],
+  ["cCont", "Contingency", buildOr("Contingency", "bContingency", A("Contingency reserve a quarter", "P.contingencyRun", "$", 0, 100000))],
+  ["cAppFee", "App store fee on user plans", function () { return A("App store fee", "P.appFee", "%", 0, 0.5); }],
+  ["cDirect", "Direct costs of other streams", function () { return Sc("Direct cost % of all 12 streams", DIRECTS.slice(1)); }]
+];
+COST_CH.forEach(function (c) {
+  var probe = c[2](10);
+  add({ id: c[0], sec: "costs", title: c[1], keys: [c[0]], type: "area", unit: "$", color: C2, tot: "sum",
+    hint: probe ? probe.label.replace(/, (Year|Q)\s?\d+.*$/, "").toLowerCase() : "", v: c[2] });
+});
+
+add({ id: "profit", sec: "profit", title: "Profit / loss", keys: ["profit"], type: "diverge", unit: "$", tot: "sum", wide: true,
+  hint: "cost multiplier (up = lower costs)", v: function () { return A("Cost multiplier", "L.cMult", "x", 0.05, 4); } });
+add({ id: "cash", sec: "profit", title: "Cumulative cash (lowest point = funding needed)", keys: ["cash"], type: "cash", unit: "$", color: C1, tot: "end", wide: true, target: 2,
+  hint: "merchant and user volume together", v: function () { return Sc("Merchant and user volume multipliers", ["L.mMult", "L.uMult"], "L.mMult"); } });
+add({ id: "margin", sec: "profit", title: "Profit margin", keys: ["margin"], type: "line", unit: "%", color: C1, tot: "none",
+  hint: "price multiplier", v: function (q) { return yrOf(q) ? A("Price multiplier", "L.pMult", "x", 0.05, 4) : null; } });
+add({ id: "kRevMerchant", sec: "profit", title: "Core revenue per paid merchant a month", keys: ["kRevMerchant"], type: "line", unit: "$2", color: C1, tot: "none",
+  hint: "merchant core prices", v: function (q) { return yrOf(q) ? RG.gCore : null; } });
+add({ id: "kArpu", sec: "profit", title: "User and partner revenue per active user a month", keys: ["kArpu"], type: "line", unit: "$2", color: C1, tot: "none",
+  hint: "user and partner prices", v: function (q) { return yrOf(q) ? RG.gUsers : null; } });
+
+// ───────── solver ─────────
+function applyDrv(snap, drv, x) {
+  var st = clone(snap);
+  if (drv.mode === "abs") { var v = Math.min(drv.hi, Math.max(drv.lo, x)); if (drv.int) v = Math.round(v); setPath(st, drv.paths[0], v); }
+  else drv.paths.forEach(function (p) { setPath(st, p, getPath(snap, p) * x); });
+  return st;
+}
+function metricOf(st, keys, qi) { var R = E.run(st.P, levers(st)), s = 0; keys.forEach(function (k) { s += R[k][qi]; }); return s; }
+function solve(drv, snap, keys, qi, target) {
+  var lo = drv.lo, hi = drv.hi;
+  var f = function (x) { return metricOf(applyDrv(snap, drv, x), keys, qi); };
+  var flo = f(lo), fhi = f(hi);
+  if (!isFinite(flo) || !isFinite(fhi) || flo === fhi) return null;
+  var inc = fhi > flo;
+  if (inc ? target <= flo : target >= flo) return lo;
+  if (inc ? target >= fhi : target <= fhi) return hi;
+  for (var k = 0; k < 42; k++) { var m = (lo + hi) / 2, fm = f(m); if ((fm < target) === inc) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+
+// ───────── history + render loop ─────────
+var hist = [];
+function pushHist() { hist.push(clone(S)); if (hist.length > 60) hist.shift(); $("undo").disabled = false; }
+var raf = 0, saveT = 0;
+function changed() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; CUR = compute(S); renderAll(); }); clearTimeout(saveT); saveT = setTimeout(function () { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }, 400); }
+function $(id) { return document.getElementById(id); }
+function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+
+// ───────── charts ─────────
+var hoverQ = null, drag = null, charts = [];
+function nice(lo, hi, n) {
+  if (hi === lo) { hi = lo + 1; }
+  var span = hi - lo, step = Math.pow(10, Math.floor(Math.log10(span / n))), err = span / n / step;
+  step *= err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1;
+  return { lo: Math.floor(lo / step) * step, hi: Math.ceil(hi / step) * step, step: step };
+}
+function Chart(spec, host) {
+  this.s = spec;
+  var card = el("div", "card" + (spec.wide ? " wide" : "")); card.id = "chart-" + spec.id;
+  var hd = el("div", "hd"); hd.appendChild(el("h3", null, spec.title)); this.val = el("span", "val"); hd.appendChild(this.val); card.appendChild(hd);
+  var sub = el("div", "sub");
+  if (spec.v || spec.vSeg) { var a = el("span", "dr", "↕ " + spec.hint); sub.appendChild(a); }
+  if (spec.h) sub.appendChild(el("span", "dr", "↔ " + (spec.hhint || spec.h.label)));
+  this.note = el("span", null, ""); sub.appendChild(this.note);
+  card.appendChild(sub);
+  if (spec.names) { var lg = el("div", "legend"); spec.names.forEach(function (n, i) { var s = el("span"); var k = el("i"); k.style.background = spec.colors[i]; s.appendChild(k); s.appendChild(document.createTextNode(n)); lg.appendChild(s); }); card.appendChild(lg); }
+  var NS = "http://www.w3.org/2000/svg";
+  this.svg = document.createElementNS(NS, "svg"); this.svg.setAttribute("class", "plot"); this.svg.setAttribute("tabindex", "0");
+  this.svg.setAttribute("role", "img"); this.svg.setAttribute("aria-label", spec.title + " by quarter. Arrow keys pick a quarter; up and down change the input behind it.");
+  this.gBase = document.createElementNS(NS, "g"); this.gMarks = document.createElementNS(NS, "g"); this.gHov = document.createElementNS(NS, "g");
+  this.svg.appendChild(this.gBase); this.svg.appendChild(this.gMarks); this.svg.appendChild(this.gHov);
+  card.appendChild(this.svg); host.appendChild(card);
+  this.card = card; this.w = 300; this.h = spec.wide ? 190 : 150;
+  var self = this;
+  this.svg.addEventListener("pointermove", function (e) { self.move(e); });
+  this.svg.addEventListener("pointerleave", function () { if (!drag) { setHover(null); hideTip(); } });
+  this.svg.addEventListener("pointerdown", function (e) { self.down(e); });
+  this.svg.addEventListener("keydown", function (e) { self.key(e); });
+  this.svg.addEventListener("blur", function () { if (!drag) { setHover(null); hideTip(); } });
+}
+Chart.prototype.layout = function () { this.w = Math.max(220, this.svg.clientWidth || this.card.clientWidth - 24); this.m = { l: 46, r: 8, t: 8, b: 18 }; this.pw = this.w - this.m.l - this.m.r; this.ph = this.h - this.m.t - this.m.b; this.step = this.pw / N; };
+Chart.prototype.x = function (i) { return this.m.l + this.step * (i + 0.5); };
+Chart.prototype.y = function (v) { return this.m.t + this.ph * (1 - (v - this.dom.lo) / (this.dom.hi - this.dom.lo)); };
+Chart.prototype.series = function (R) { var s = this.s; return s.keys.map(function (k) { return R[k]; }); };
+Chart.prototype.totals = function (R) { var a = new Array(N).fill(0); this.series(R).forEach(function (arr) { for (var i = 0; i < N; i++) a[i] += arr[i]; }); return a; };
+Chart.prototype.domain = function () {
+  var lo = 0, hi = 0, R = CUR.R, B = BASE.R, tot = this.s.type === "stack" ? [this.totals(R), this.totals(B)] : this.series(R).concat(this.series(B));
+  tot.forEach(function (a) { a.forEach(function (v) { if (v < lo) lo = v; if (v > hi) hi = v; }); });
+  var tg = this.targetLine(); if (tg && tg.v != null) { hi = Math.max(hi, tg.v); lo = Math.min(lo, tg.v); }
+  if (hi === lo) hi = lo + 1;
+  return nice(lo, hi * 1.04, 3);
+};
+Chart.prototype.targetLine = function () {
+  var s = this.s; if (s.target == null || S.target.i !== s.target && !(s.target === 2 && (S.target.i === 6 || S.target.i === 7))) return null;
+  var tv = S.target.v, i = S.target.i;
+  if (i === 0) return { q0: N - 4, q1: N - 1, v: tv / 4, label: "Target pace" };
+  if (i === 3 || i === 4 || i === 2) return { q0: N - 1, q1: N - 1, v: tv, label: "Target" };
+  if (i === 7) return { q0: 0, q1: N - 1, v: -tv, label: "Funding limit" };
+  if (i === 6) return { vq: Math.round(tv), label: "Payback target" };
+  return null;
+};
+Chart.prototype.render = function () {
+  this.layout();
+  this.svg.setAttribute("viewBox", "0 0 " + this.w + " " + this.h);
+  if (!(drag && drag.chart === this)) this.dom = this.domain();
+  var R = CUR.R, s = this.s, m = this.m, self = this, out = [], base = [];
+  // year bands + axis
+  var bands = [[0, BQ, "Build"]]; for (var y = 1; y <= 5; y++) bands.push([BQ + (y - 1) * 4, BQ + y * 4, "Y" + y]);
+  bands.forEach(function (b, j) {
+    var x0 = m.l + b[0] * self.step, x1 = m.l + b[1] * self.step;
+    base.push('<rect x="' + x0 + '" y="' + m.t + '" width="' + (x1 - x0) + '" height="' + self.ph + '" fill="var(' + (j % 2 ? "--band-2" : "--band") + ')"/>');
+    base.push('<text class="ax" x="' + ((x0 + x1) / 2) + '" y="' + (self.h - 4) + '" text-anchor="middle" fill="var(--muted)" font-size="10">' + b[2] + "</text>");
+  });
+  var d = this.dom; base.push('<g class="ax">');
+  for (var v = d.lo; v <= d.hi + d.step / 2; v += d.step) {
+    var yy = this.y(v); base.push('<line x1="' + m.l + '" x2="' + (m.l + this.pw) + '" y1="' + yy + '" y2="' + yy + '"' + (Math.abs(v) < d.step / 2 ? ' class="zero"' : "") + "/>");
+    base.push('<text x="' + (m.l - 6) + '" y="' + (yy + 3.5) + '" text-anchor="end">' + axisFmt(s.unit, Math.abs(v) < d.step / 1e6 ? 0 : v) + "</text>");
+  }
+  base.push("</g>");
+  this.gBase.innerHTML = base.join("");
+  var y0 = this.y(Math.max(d.lo, Math.min(d.hi, 0))), bw = Math.max(2, this.step * 0.64);
+  if (s.type === "bar" || s.type === "diverge") {
+    var a = R[s.keys[0]];
+    for (var i = 0; i < N; i++) {
+      var yv = this.y(a[i]), top = Math.min(yv, y0), hgt = Math.abs(yv - y0);
+      var col = s.type === "diverge" ? (a[i] < 0 ? "var(--neg)" : "var(--s1)") : s.color;
+      out.push('<rect x="' + (this.x(i) - bw / 2) + '" y="' + top + '" width="' + bw + '" height="' + Math.max(0, hgt) + '" rx="1.5" fill="' + col + '"/>');
+    }
+  } else if (s.type === "stack") {
+    var cum = new Array(N).fill(0), ser = this.series(R);
+    ser.forEach(function (arr, j) {
+      for (var i = 0; i < N; i++) {
+        var a0 = cum[i], a1 = cum[i] + Math.max(0, arr[i]); cum[i] = a1;
+        var ya = self.y(a0), yb = self.y(a1), h = ya - yb - (a1 > a0 ? 1 : 0);
+        if (h > 0) out.push('<rect x="' + (self.x(i) - bw / 2) + '" y="' + yb + '" width="' + bw + '" height="' + h + '" fill="' + s.colors[j] + '"/>');
+      }
+    });
+  } else {
+    var arr = R[s.keys[0]], pts = arr.map(function (v, i) { return self.x(i).toFixed(1) + "," + self.y(v).toFixed(1); });
+    if (s.type === "area" || s.type === "cash") {
+      out.push('<path d="M' + this.x(0) + "," + y0 + " L" + pts.join(" L") + " L" + this.x(N - 1) + "," + y0 + 'Z" fill="' + s.color + '" fill-opacity="0.13"/>');
+      if (s.type === "cash" && d.lo < 0) { out.push('<clipPath id="neg-' + s.id + '"><rect x="' + m.l + '" y="' + y0 + '" width="' + this.pw + '" height="' + (m.t + this.ph - y0) + '"/></clipPath>');
+        out.push('<path clip-path="url(#neg-' + s.id + ')" d="M' + this.x(0) + "," + y0 + " L" + pts.join(" L") + " L" + this.x(N - 1) + "," + y0 + 'Z" fill="var(--neg)" fill-opacity="0.22"/>'); }
+    }
+    out.push('<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + s.color + '" stroke-width="2" stroke-linejoin="round"/>');
+  }
+  // base (file values) ghost
+  if (differs()) {
+    var B = s.type === "stack" ? this.totals(BASE.R) : BASE.R[s.keys[0]];
+    out.push('<polyline points="' + B.map(function (v, i) { return self.x(i).toFixed(1) + "," + self.y(v).toFixed(1); }).join(" ") + '" fill="none" stroke="var(--ghost)" stroke-width="1.4" stroke-dasharray="4 3"/>');
+  }
+  var tg = this.targetLine();
+  if (tg) {
+    if (tg.vq) { var tx = this.x(tg.vq - 1); out.push('<line x1="' + tx + '" x2="' + tx + '" y1="' + m.t + '" y2="' + (m.t + this.ph) + '" stroke="var(--accent)" stroke-dasharray="5 3" stroke-width="1.5"/><text x="' + (tx + 4) + '" y="' + (m.t + 10) + '" font-size="10" fill="var(--accent)">' + tg.label + "</text>"); }
+    else if (tg.v >= d.lo && tg.v <= d.hi) { var ty = this.y(tg.v), xa = this.x(tg.q0) - this.step / 2, xb = this.x(tg.q1) + this.step / 2;
+      out.push('<line x1="' + xa + '" x2="' + xb + '" y1="' + ty + '" y2="' + ty + '" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 3"/><text x="' + Math.max(m.l + 2, xa - 2) + '" y="' + (ty - 4) + '" font-size="10" text-anchor="' + (tg.q0 === tg.q1 ? "end" : "start") + '" fill="var(--accent)">' + tg.label + "</text>"); }
+  }
+  this.gMarks.innerHTML = out.join("");
+  // value label
+  var tot = s.tot === "sum" ? this.totals(R).reduce(function (a, b) { return a + b; }, 0) : s.tot === "end" ? this.totals(R)[N - 1] : null;
+  this.note.textContent = tot == null ? "" : (s.tot === "sum" ? "22-quarter total " : "At Q22 ") + fmtUnit(s.unit, tot);
+  this.drawHover();
+};
+Chart.prototype.drawHover = function () {
+  var s = this.s, out = [];
+  if (hoverQ != null) {
+    var i = hoverQ - 1, x = this.x(i), R = CUR.R;
+    out.push('<line x1="' + x + '" x2="' + x + '" y1="' + this.m.t + '" y2="' + (this.m.t + this.ph) + '" stroke="var(--ink-2)" stroke-opacity="0.45" stroke-width="1"/>');
+    var v = this.totals(R)[i], drv = this.drvAt(hoverQ, s.keys[s.keys.length - 1]);
+    var cy = this.y(v);
+    out.push('<circle cx="' + x + '" cy="' + cy + '" r="' + (drv ? 5.5 : 3.5) + '" fill="' + (drv ? "var(--surface)" : "var(--ink-2)") + '" stroke="' + (drv ? "var(--accent)" : "none") + '" stroke-width="2.5"/>');
+    this.val.textContent = "Q" + hoverQ + ": " + fmtUnit(s.unit, v);
+    this.svg.classList.toggle("can-drag", !!drv);
+  } else {
+    var R2 = CUR.R, last = this.totals(R2);
+    this.val.textContent = s.tot === "sum" ? fmtUnit(s.unit, last.reduce(function (a, b) { return a + b; }, 0)) : s.tot === "end" ? fmtUnit(s.unit, last[N - 1]) : "Q22: " + fmtUnit(s.unit, last[N - 1]);
+    this.svg.classList.remove("can-drag");
+  }
+  this.gHov.innerHTML = out.join("");
+};
+Chart.prototype.drvAt = function (q, segKey) { var s = this.s; if (s.vSeg) return s.vSeg(segKey, q); return s.v ? s.v(q) : null; };
+Chart.prototype.qAt = function (e) { var r = this.svg.getBoundingClientRect(), px = (e.clientX - r.left) * this.w / r.width; return Math.max(1, Math.min(N, Math.floor((px - this.m.l) / this.step) + 1)); };
+Chart.prototype.valAt = function (e) { var r = this.svg.getBoundingClientRect(), py = (e.clientY - r.top) * this.h / r.height; return this.dom.lo + (1 - (py - this.m.t) / this.ph) * (this.dom.hi - this.dom.lo); };
+Chart.prototype.segAt = function (e, q) {
+  var s = this.s; if (s.type !== "stack") return s.keys[0];
+  var v = this.valAt(e), cum = 0, R = CUR.R, pick = s.keys[s.keys.length - 1];
+  for (var j = 0; j < s.keys.length; j++) { cum += Math.max(0, R[s.keys[j]][q - 1]); if (v <= cum) { pick = s.keys[j]; break; } }
+  return pick;
+};
+Chart.prototype.move = function (e) {
+  if (drag && drag.chart === this) { drag.ev = e; if (!drag.raf) drag.raf = requestAnimationFrame(function () { if (!drag) return; drag.raf = 0; dragMove(drag.ev); }); return; }
+  if (drag) return;
+  var q = this.qAt(e); setHover(q); showTip(this, q, e.clientX, e.clientY, this.segAt(e, q));
+};
+Chart.prototype.down = function (e) {
+  if (e.button !== 0) return;
+  if (e.pointerType === "touch" && !document.body.classList.contains("edit-on")) return;
+  var q = this.qAt(e), seg = this.segAt(e, q), vd = this.drvAt(q, seg);
+  if (!vd && !this.s.h) return;
+  e.preventDefault();
+  this.svg.setPointerCapture(e.pointerId);
+  var keys = this.s.keys, stackKeys = keys;
+  if (this.s.type === "stack") { var idx = keys.indexOf(seg); stackKeys = keys.slice(0, idx + 1); }
+  var d0 = this.dom, span = d0.hi - d0.lo;
+  this.dom = { lo: d0.lo < 0 ? d0.lo - span * 0.4 : d0.lo, hi: d0.hi + span * 0.6, step: d0.step };
+  drag = { chart: this, q: q, seg: seg, vd: vd, keys: stackKeys, x0: e.clientX, y0: e.clientY, mode: null, snap: clone(S), hval0: this.s.h ? getPath(S, this.s.h.paths[0]) : null };
+  this.svg.classList.add("dragging");
+  pushHist();
+  this.render();
+};
+function dragMove(e) {
+  var c = drag.chart, dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+  if (!drag.mode) {
+    if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+    drag.mode = (Math.abs(dx) > Math.abs(dy) && c.s.h) ? "h" : (drag.vd ? "v" : (c.s.h ? "h" : "none"));
+  }
+  var label = "";
+  if (drag.mode === "v") {
+    var target = c.valAt(e);
+    if (c.s.unit !== "%" && c.s.type !== "diverge" && c.s.type !== "cash") target = Math.max(0, target);
+    var x = solve(drag.vd, drag.snap, drag.keys, drag.q - 1, target);
+    if (x != null) S = applyDrv(drag.snap, drag.vd, x);
+  } else if (drag.mode === "h") {
+    var hd = c.s.h, r = c.svg.getBoundingClientRect(), qw = (r.width * c.step / c.w) * (hd.perQ || 1);
+    var nv = Math.max(hd.lo, Math.min(hd.hi, Math.round(drag.hval0 + dx / qw)));
+    S = clone(drag.snap); setPath(S, hd.paths[0], nv);
+  }
+  CUR = compute(S); renderAll();
+  setHover(drag.q); showTip(c, drag.q, e.clientX, e.clientY, drag.seg);
+}
+window.addEventListener("pointerup", function () {
+  if (!drag) return; var c = drag.chart; c.svg.classList.remove("dragging");
+  if (!drag.mode || drag.mode === "none") hist.pop();
+  if (!hist.length) $("undo").disabled = true;
+  drag = null; changed(); c.render();
+});
+window.addEventListener("pointercancel", function () { if (drag) { drag.chart.svg.classList.remove("dragging"); drag = null; changed(); } });
+Chart.prototype.key = function (e) {
+  var q = hoverQ || N;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") { q = Math.max(1, Math.min(N, q + (e.key === "ArrowLeft" ? -1 : 1))); setHover(q); var r = this.svg.getBoundingClientRect(); showTip(this, q, r.left + (this.x(q - 1) / this.w) * r.width, r.top + 10, this.s.keys[this.s.keys.length - 1]); e.preventDefault(); }
+  else if ((e.key === "ArrowUp" || e.key === "ArrowDown") && hoverQ) {
+    var drv = this.drvAt(hoverQ, this.s.keys[this.s.keys.length - 1]); if (!drv) return;
+    var keys = this.s.keys, cur = this.totals(CUR.R)[hoverQ - 1], step = Math.max(Math.abs(cur) * 0.03, (this.dom.hi - this.dom.lo) * 0.01);
+    pushHist(); var x = solve(drv, clone(S), keys, hoverQ - 1, cur + (e.key === "ArrowUp" ? step : -step));
+    if (x != null) { S = applyDrv(S, drv, x); changed(); } e.preventDefault();
+  } else if (e.key === "Escape") { setHover(null); hideTip(); }
+};
+
+function setHover(q) {
+  if (q === hoverQ) return; hoverQ = q;
+  charts.forEach(function (c) { c.drawHover(); });
+  var st = $("hovStyle"); st.textContent = q ? "#tq [data-q='" + q + "']{background:var(--accent-soft)!important}" : "";
+}
+
+// ───────── tooltip ─────────
+var tip = $("tip");
+function showTip(chart, q, cx, cy, seg) {
+  var s = chart.s, i = q - 1, R = CUR.R, B = BASE.R;
+  tip.textContent = "";
+  tip.appendChild(el("div", "t1", "Q" + q + " · " + qCal(q) + " · " + yrName(yrOf(q))));
+  var tot = chart.totals(R)[i];
+  tip.appendChild(el("div", "t2", fmtUnit(s.unit, tot)));
+  if (s.keys.length > 1) {
+    s.keys.slice().reverse().forEach(function (k, jj) { var j = s.keys.length - 1 - jj; var row = el("div", "row"); var a = el("span"); var key = el("i", "key"); key.style.background = s.colors[j]; a.appendChild(key); a.appendChild(document.createTextNode(s.names[j])); row.appendChild(a); row.appendChild(el("span", null, fmtUnit(s.unit, R[k][i]))); tip.appendChild(row); });
+  } else tip.appendChild(el("div", "row", s.title));
+  if (differs()) { var bt = chart.totals(B)[i], dlt = tot - bt; var r2 = el("div", "row"); r2.appendChild(el("span", null, "Your file")); r2.appendChild(el("span", null, fmtUnit(s.unit, bt) + (Math.abs(dlt) > 1e-9 ? "  (" + (dlt > 0 ? "+" : "−") + fmtUnit(s.unit, Math.abs(dlt)) + ")" : ""))); tip.appendChild(r2); }
+  var drv = chart.drvAt(q, seg);
+  if (drv) {
+    var txt;
+    if (drv.mode === "abs") txt = "↕ " + drv.label + ": " + fmtUnit(drv.unit, getPath(S, drv.paths[0]));
+    else { var p0 = drv.show || drv.paths[0], dv = getPath(DEF, p0), now = getPath(S, p0); txt = "↕ " + drv.label + ": " + (dv ? mult(now / dv) + " of your file" : ""); }
+    tip.appendChild(el("div", "drv", txt));
+  }
+  if (s.h) tip.appendChild(el("div", "drv", "↔ " + s.h.label + ": " + fmtUnit(s.h.unit, getPath(S, s.h.paths[0]))));
+  tip.hidden = false;
+  var tw = tip.offsetWidth, th = tip.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+  var left = cx + 14, top = cy + 14; if (left + tw > vw - 8) left = cx - tw - 14; if (top + th > vh - 8) top = cy - th - 14;
+  tip.style.left = Math.max(8, left) + "px"; tip.style.top = Math.max(8, top) + "px";
+}
+function hideTip() { tip.hidden = true; }
+
+// ───────── differs from file ─────────
+function differs() { return JSON.stringify(S.P) !== JSON.stringify(DEF.P) || JSON.stringify(levers(S)) !== JSON.stringify(levers(DEF)); }
+
+// ───────── controls ─────────
+var scenBox = $("scen");
+["Conservative", "Base", "Optimistic", "Custom"].forEach(function (n) {
+  var b = el("button", null, n); b.type = "button"; b.addEventListener("click", function () { pushHist(); if (n === "Custom" && S.scenario !== "Custom") S.custom = levers(S); S.scenario = n; changed(); }); scenBox.appendChild(b);
+});
+var lvBox = $("levers"), lvInputs = {};
+SPEC.levers.forEach(function (l) {
+  var w = el("div", "lever"), id = "lv-" + l.key, lab = el("label", null, l.label.replace(" multiplier", "")); lab.htmlFor = id; lab.title = l.what;
+  var out = el("output"); var r = document.createElement("input"); r.type = "range"; r.min = "0.25"; r.max = "2"; r.step = "0.01"; r.id = id;
+  r.addEventListener("pointerdown", function () { pushHist(); });
+  r.addEventListener("keydown", function () { pushHist(); });
+  r.addEventListener("input", function () { if (S.scenario !== "Custom") { S.custom = levers(S); S.scenario = "Custom"; } S.custom[l.key] = +r.value; changed(); });
+  w.appendChild(lab); w.appendChild(out); w.appendChild(r); lvBox.appendChild(w); lvInputs[l.key] = { r: r, o: out };
+});
+var tm = $("tMetric"); SPEC.targets.forEach(function (t, i) { var o = el("option", null, t.metric); o.value = i; tm.appendChild(o); });
+tm.addEventListener("change", function () { pushHist(); S.target.i = +tm.value; var defaults = [1e6, 3e6, 1.5e6, 1200, 40000, 8, 12, 200000]; S.target.v = defaults[S.target.i]; changed(); });
+$("tValue").addEventListener("input", function () { var v = parseFloat($("tValue").value); if (isFinite(v)) { S.target.v = v; changed(); } });
+$("reset").addEventListener("click", function () { pushHist(); S = clone(DEF); $("seekOut").textContent = ""; changed(); });
+$("undo").addEventListener("click", function () { if (!hist.length) return; S = hist.pop(); if (!hist.length) $("undo").disabled = true; changed(); });
+document.addEventListener("keydown", function (e) { if ((e.metaKey || e.ctrlKey) && e.key === "z" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); $("undo").click(); } });
+$("editToggle").addEventListener("click", function () { var on = !document.body.classList.contains("edit-on"); document.body.classList.toggle("edit-on", on); this.setAttribute("aria-pressed", on); this.textContent = "Drag to edit: " + (on ? "on" : "off"); });
+function tDir(i) { return SPEC.targets[i].dir; }
+function tMet(st, sum) { var r = E.targetResult(sum, st.target.i); return tDir(st.target.i) === ">=" ? r >= st.target.v : r <= st.target.v; }
+$("seekBtn").addEventListener("click", function () {
+  var out = $("seekOut"); out.textContent = "";
+  var drv = Sc("Merchant and user volume", ["L.mMult", "L.uMult"], "L.mMult"), snap = clone(S);
+  var ok = function (x) { var st = applyDrv(snap, drv, x); return tMet(st, compute(st).sum); };
+  var lo = 0.05, hi = 10;
+  if (!ok(hi)) { out.textContent = "Even 10× today's volume would not meet it. Try a different lever or target."; return; }
+  if (ok(lo)) { out.textContent = "Met even at 5% of today's volume."; return; }
+  for (var k = 0; k < 40; k++) { var m = (lo + hi) / 2; if (ok(m)) hi = m; else lo = m; }
+  var L0 = levers(snap), f = hi;
+  out.textContent = "Needs merchant volume " + mult(L0.mMult * f) + " and user volume " + mult(L0.uMult * f) + " (" + mult(f) + " of now). ";
+  var ap = el("button", "btn", "Apply"); ap.addEventListener("click", function () { pushHist(); S = applyDrv(snap, drv, f * 1.0005); out.textContent = "Applied (scenario is now Custom)."; changed(); });
+  out.appendChild(ap);
+});
+
+// ───────── KPIs ─────────
+var KP = [
+  ["Revenue, Year 5", function (s) { return s.revY5; }, "$", 1], ["Revenue, Years 1–5", function (s) { return s.revY15; }, "$", 1],
+  ["Cumulative profit at Q22", function (s) { return s.cumProfit; }, "$", 1], ["Funding needed", function (s) { return s.funding; }, "$", -1],
+  ["First profitable quarter", function (s) { return s.breakEvenQ; }, "q", -1], ["Payback quarter", function (s) { return s.paybackQ; }, "q", -1],
+  ["Paid merchants at Q22", function (s) { return s.pmEnd; }, "n", 1], ["Active users at Q22", function (s) { return s.usersEnd; }, "n", 1]
+];
+var kpiEls = KP.map(function (k) { var d = el("div", "kpi"); d.appendChild(el("div", "lbl", k[0])); var v = el("div", "v num"); var dd = el("div", "d"); d.appendChild(v); d.appendChild(dd); $("kpis").appendChild(d); return { v: v, d: dd }; });
+function renderKpis() {
+  KP.forEach(function (k, i) {
+    var now = k[1](CUR.sum), was = k[1](BASE.sum), e = kpiEls[i];
+    if (k[2] === "q") { e.v.textContent = now == null ? "Not by Q22" : "Q" + now; var sub = now == null ? "" : qCal(now);
+      if (now != null && was != null && now !== was) { var df = now - was; e.d.textContent = sub + " · " + Math.abs(df) + (Math.abs(df) === 1 ? " quarter " : " quarters ") + (df < 0 ? "earlier" : "later"); e.d.className = "d " + (df < 0 ? "up" : "down"); }
+      else { e.d.textContent = sub + (now === was ? " · same as your file" : ""); e.d.className = "d"; } return; }
+    e.v.textContent = fmtUnit(k[2], now);
+    var diff = now - was;
+    if (Math.abs(diff) < Math.max(1e-6, Math.abs(was) * 1e-6)) { e.d.textContent = "Same as your file"; e.d.className = "d"; }
+    else { var good = diff * k[3] > 0; e.d.textContent = (diff > 0 ? "+" : "−") + fmtUnit(k[2], Math.abs(diff)) + " vs your file"; e.d.className = "d " + (good ? "up" : "down"); }
+  });
+}
+
+// ───────── tables ─────────
+var TQ = [["Volume"], ["newM", "New paid merchants", "n"], ["pmEnd", "Paid merchants, end of quarter", "n"], ["usersEnd", "Active users, end of quarter", "n"], ["payingEnd", "Paying users, end of quarter", "n"], ["orders", "Online orders", "n"],
+  ["Revenue"], ["gCore", "Merchants core", "$"], ["gExtra", "Merchants extras", "$"], ["gUsers", "Users and partners", "$"], ["gProv", "Providers and brands", "$"], ["revTotal", "Total revenue", "$", 1],
+  ["Costs"], ["gcDhaka", "Dhaka team", "$"], ["gcNY", "New York team", "$"], ["gcOps", "Operating", "$"], ["gcCont", "Contingency", "$"], ["gcDirect", "Direct costs", "$"], ["costTotal", "Total costs", "$", 1],
+  ["Profit and cash"], ["profit", "Profit / loss", "$", 1], ["margin", "Profit margin", "%"], ["cash", "Cumulative cash", "$", 1]];
+var TQ_MORE = [["Revenue lines"]].concat(E.REV.map(function (k) { return [k, CH.filter(function (c) { return c.id === k; })[0].title, "$"]; }),
+  [["Cost lines"]], E.COST.map(function (k) { return [k, CH.filter(function (c) { return c.id === k; })[0].title, "$"]; }),
+  [["Volume detail"], ["mMonths", "Merchant-months", "n"], ["churnRate", "Monthly churn", "%"], ["usersAvg", "Average active users", "n"], ["payShare", "Paying share", "%"], ["basicUsers", "Basic users (avg)", "n"], ["proUsers", "Pro users (avg)", "n"], ["freeUsers", "Free users (avg)", "n"], ["team", "Dhaka team", "n"], ["se", "Sales Executives (no cost line)", "n"], ["visits", "Field visits (no cost line)", "n"], ["support", "Support hours (no cost line)", "n"]]);
+var tqCells = {}, tyCells = {};
+function buildTables() {
+  var showAll = false;
+  function q(rows, host, cells, yearly) {
+    host.textContent = "";
+    var t = el("table"), th = el("thead"), tr = el("tr"); tr.appendChild(el("th", null, yearly ? "US$ / count" : "Quarter"));
+    var heads = yearly ? ["Build", "Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Years 1–5", "All"] : [];
+    if (!yearly) { for (var i = 1; i <= N; i++) { var h = el("th", null, "Q" + i); h.dataset.q = i; h.title = qCal(i); tr.appendChild(h); } tr.appendChild(el("th", null, "Total / Q22")); }
+    else heads.forEach(function (h) { tr.appendChild(el("th", null, h)); });
+    th.appendChild(tr); t.appendChild(th);
+    var tb = el("tbody");
+    rows.forEach(function (r) {
+      var row = el("tr");
+      if (r.length === 1) { row.className = "grp"; var td = el("td", null, r[0]); td.colSpan = yearly ? 9 : N + 2; row.appendChild(td); tb.appendChild(row); return; }
+      if (r[3]) row.className = "tot";
+      row.appendChild(el("td", null, r[1]));
+      var arr = []; var n = yearly ? 8 : N + 1;
+      for (var j = 0; j < n; j++) { var c = el("td"); if (!yearly && j < N) c.dataset.q = j + 1; row.appendChild(c); arr.push(c); }
+      cells[r[0]] = { cells: arr, unit: r[2] }; tb.appendChild(row);
+    });
+    t.appendChild(tb); host.appendChild(t);
+  }
+  q(TQ.concat(TQ_MORE), $("tq"), tqCells, false);
+  q(TQ, $("ty"), tyCells, true);
+}
+function renderTables() {
+  var R = CUR.R;
+  Object.keys(tqCells).forEach(function (k) {
+    var o = tqCells[k], arr = R[k], flow = E.FLOW[k];
+    for (var i = 0; i < N; i++) { o.cells[i].textContent = fmtUnit(o.unit, arr[i]); o.cells[i].className = arr[i] < -1e-9 ? "neg" : ""; }
+    var tv = flow ? arr.reduce(function (a, b) { return a + b; }, 0) : (o.unit === "%" ? null : arr[N - 1]);
+    o.cells[N].textContent = tv == null ? "" : fmtUnit(o.unit, tv);
+  });
+  Object.keys(tyCells).forEach(function (k) {
+    var o = tyCells[k], yv;
+    if (k === "margin") { var rv = E.yearly(R, "revTotal", BQ), pv = E.yearly(R, "profit", BQ); yv = rv.map(function (v, i) { return v ? pv[i] / v : 0; }); }
+    else yv = E.yearly(R, k, BQ);
+    yv.forEach(function (v, i) { o.cells[i].textContent = v == null ? "" : fmtUnit(o.unit, v); o.cells[i].className = v < -1e-9 ? "neg" : ""; });
+  });
+}
+$("tabQ").addEventListener("click", function () { $("tq").hidden = false; $("ty").hidden = true; this.setAttribute("aria-pressed", "true"); $("tabY").setAttribute("aria-pressed", "false"); });
+$("tabY").addEventListener("click", function () { $("tq").hidden = true; $("ty").hidden = false; this.setAttribute("aria-pressed", "true"); $("tabQ").setAttribute("aria-pressed", "false"); });
+
+// ───────── inputs drawer ─────────
+var META = {}; SPEC.inputs.forEach(function (it) { META[it.key] = it; });
+var drawerInputs = [];
+function unitOf(it) { return /%/.test(it.fmt || "") ? 100 : 1; }
+function colLetter(base, i) { return String.fromCharCode(base.charCodeAt(0) + i); }
+function cellFor(path) {
+  var p = path.split(".");
+  if (p[0] === "L") { var li = SPEC.levers.map(function (l) { return l.key; }).indexOf(p[1]); return "Control Panel!F" + (8 + li); }
+  if (p[1] === "streams") { var s = SPEC.streams.filter(function (x) { return x.key === p[2]; })[0]; return s.cells[p[3]]; }
+  var it = META[p[1]]; if (!it) return "";
+  var c0 = it.cell.split(":")[0].replace("Inputs!", ""), col = c0.replace(/\d+/g, ""), row = +c0.replace(/\D+/g, "");
+  if (p.length > 2) { var i = +p[2]; return it.kind === "quarter" ? "Inputs!" + col + (row + i) : "Inputs!" + colLetter(col, i) + row; }
+  return "Inputs!" + c0;
+}
+function numInput(path, scale, label) {
+  var inp = document.createElement("input"); inp.type = "number"; inp.step = "any"; inp.id = "in-" + path.replace(/\./g, "-"); inp.setAttribute("aria-label", label);
+  inp.addEventListener("focus", function () { pushHist(); });
+  inp.addEventListener("input", function () { var v = parseFloat(inp.value); if (!isFinite(v)) return; setPath(S, path, v / scale); changed(); });
+  drawerInputs.push({ el: inp, path: path, scale: scale });
+  return inp;
+}
+function buildDrawer() {
+  var body = $("drawerBody"); body.textContent = "";
+  var h = el("h4", null, "Model start date"); body.appendChild(h);
+  var r0 = el("div", "irow"); var nm = el("div", "nm", "Q1 begins"); nm.appendChild(el("small", null, "Control Panel!C14 · moves every quarter date")); r0.appendChild(nm);
+  var md = document.createElement("input"); md.type = "month"; md.id = "in-start"; md.value = S.start; md.style.width = "150px"; md.setAttribute("aria-label", "Model start month");
+  md.addEventListener("change", function () { if (/^\d{4}-\d{2}$/.test(md.value)) { pushHist(); S.start = md.value; buildTables(); changed(); } });
+  var vv = el("div", "vals"); vv.appendChild(md); r0.appendChild(vv); body.appendChild(r0);
+  var sec = null, groups = [
+    ["Market size", ["pop", "adultShare", "shops"]], ["Merchants: how many", ["betaMerchants", "betaConv", "newM8", "y1Growth", "newPerMonth", "churn"]],
+    ["Users", ["usersLaunch", "usersEnd", "payShare0", "payShare1", "payRampQ", "basicShare"]], ["Merchant prices and fees", ["mBasic", "mPro", "proShare", "onlineSales", "commission", "smsMargin", "avgOrder"]],
+    ["User prices, ads, app store fee", ["uBasic", "uPro", "appFee", "adRate", "adsStartQ"]], ["STREAMS"], ["Brand sponsor deals", ["deals"]],
+    ["Teams", ["dhakaTeam", "dhakaPayroll", "usRise", "finance", "commissionPerShop", "shopsPerSE", "minSE", "minVisits", "visitsPerMerchant", "supportStartYear", "minSupportHours", "supportPerMerchant", "supportPerUser"]],
+    ["Operating costs after launch", ["toolsBase", "toolsPerMember", "serviceData", "legal", "insurance", "gtmFixed", "gtmPerNew", "contingencyRun"]],
+    ["Build and beta plan (Q1, Q2)", ["bTeam", "bPayroll", "bFinance", "bBetaShops", "bTools", "bService", "bGtm", "bLegal", "bLegalOneOff", "bInsurance", "bContingency", "bSE", "bVisits"]],
+    ["Cloud hosting by quarter", ["cloud"]], ["REF"]];
+  groups.forEach(function (g) {
+    if (g[0] === "STREAMS") {
+      body.appendChild(el("h4", null, "Other revenue streams: driver · price · start Q · ramp Q · direct %"));
+      SPEC.streams.forEach(function (s) {
+        var row = el("div", "irow"), nm = el("div", "nm", s.label); nm.appendChild(el("small", null, s.id + " · " + s.du + " / " + s.pu)); row.appendChild(nm);
+        var vals = el("div", "vals");
+        [["drv", 1], ["price", s.price < 0.1 ? 100 : 1], ["sq", 1], ["rq", 1], ["dc", 100]].forEach(function (a) {
+          if (a[0] === "drv" && s.drv == null) { var sp = el("span", "seek", "deals ↓"); sp.style.width = "84px"; vals.appendChild(sp); return; }
+          var inp = numInput("P.streams." + s.key + "." + a[0], a[1] === 100 && a[0] === "drv" ? 1 : a[1], s.label + " " + a[0]); inp.style.width = "62px"; vals.appendChild(inp);
+        });
+        row.appendChild(vals); body.appendChild(row);
+      });
+      return;
+    }
+    if (g[0] === "REF") {
+      body.appendChild(el("h4", null, "In your file but not used by any result"));
+      SPEC.inputs.filter(function (it) { return !it.used; }).forEach(function (it) {
+        var row = el("div", "irow ro"), nm = el("div", "nm", it.label); nm.appendChild(el("small", null, it.id + " · " + it.note)); row.appendChild(nm);
+        row.appendChild(el("div", "vals", Array.isArray(it.value) ? it.value.join(" · ") : String(it.value))); body.appendChild(row);
+      });
+      return;
+    }
+    body.appendChild(el("h4", null, g[0]));
+    g[1].forEach(function (k) {
+      var it = META[k]; if (!it) return;
+      var row = el("div", "irow"); row.dataset.key = k;
+      var nm = el("div", "nm", it.label); nm.appendChild(el("small", null, it.id + " · " + it.unit + (unitOf(it) === 100 ? " (type %)" : "") + " · " + it.cell)); row.appendChild(nm);
+      var vals = el("div", "vals"), sc = unitOf(it);
+      if (it.kind === "year" || it.kind === "build" || it.kind === "quarter") {
+        it.value.forEach(function (v, i) {
+          if (v == null) { var sp = el("span", "seek", "rows above"); sp.style.width = "84px"; sp.style.fontSize = "11px"; vals.appendChild(sp); return; }
+          var tag = it.kind === "year" ? "Year " + (i + 1) : "Q" + (i + 1);
+          var inp = numInput("P." + k + "." + i, sc, it.label + " " + tag);
+          var wrapL = el("label", "yv"); wrapL.appendChild(el("span", null, tag)); wrapL.appendChild(inp); vals.appendChild(wrapL);
+        });
+        row.classList.add("stack");
+      } else vals.appendChild(numInput("P." + k, sc, it.label));
+      row.appendChild(vals); body.appendChild(row);
+    });
+  });
+}
+function syncDrawer() {
+  drawerInputs.forEach(function (d) {
+    var v = getPath(S, d.path), dv = getPath(DEF, d.path);
+    if (document.activeElement !== d.el) d.el.value = +(v * d.scale).toPrecision(8);
+    d.el.classList.toggle("changed", Math.abs(v - dv) > 1e-12);
+  });
+  var md = $("in-start"); if (md && document.activeElement !== md) md.value = S.start;
+}
+function openDrawer(open) { $("drawer").hidden = !open; $("scrim").hidden = !open; if (open) { syncDrawer(); $("closeInputs").focus(); } }
+$("openInputs").addEventListener("click", function () { openDrawer(true); });
+$("closeInputs").addEventListener("click", function () { openDrawer(false); });
+$("scrim").addEventListener("click", function () { openDrawer(false); });
+document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("drawer").hidden) openDrawer(false); });
+
+// ───────── changes list ─────────
+function allPaths() {
+  var out = [];
+  SPEC.inputs.forEach(function (it) { if (!it.used) return; if (Array.isArray(it.value)) it.value.forEach(function (v, i) { if (v != null) out.push(["P." + it.key + "." + i, it.label + " (" + (it.kind === "year" ? "Year " + (i + 1) : "Q" + (i + 1)) + ")", it.fmt]); }); else out.push(["P." + it.key, it.label, it.fmt]); });
+  SPEC.streams.forEach(function (s) { [["drv", "driver"], ["price", "price"], ["sq", "start quarter"], ["rq", "ramp quarters"], ["dc", "direct cost %"]].forEach(function (a) { if (a[0] === "drv" && s.drv == null) return; out.push(["P.streams." + s.key + "." + a[0], s.label + ": " + a[1], a[0] === "dc" ? "%" : ""]); }); });
+  return out;
+}
+var PATHS = allPaths();
+function showVal(v, fmt) { if (/%/.test(fmt || "")) return +(v * 100).toPrecision(6) + "%"; return String(+v.toPrecision(8)); }
+function changeLines() {
+  var lines = [];
+  if (S.scenario !== DEF.scenario) lines.push(["Scenario in use", "Control Panel!C5", DEF.scenario, S.scenario]);
+  if (S.scenario === "Custom") SPEC.levers.forEach(function (l, i) { if (Math.abs(S.custom[l.key] - 1) > 1e-9) lines.push([l.label + " (Custom)", "Control Panel!F" + (8 + i), "1.00", S.custom[l.key].toFixed(4)]); });
+  if (S.start !== DEF.start) lines.push(["Model start date", "Control Panel!C14", DEF.start, S.start]);
+  if (S.target.i !== DEF.target.i) lines.push(["Target metric", "Control Panel!C17", SPEC.targets[DEF.target.i].metric, SPEC.targets[S.target.i].metric]);
+  if (S.target.v !== DEF.target.v) lines.push(["Target value", "Control Panel!C18", String(DEF.target.v), String(S.target.v)]);
+  PATHS.forEach(function (p) { var a = getPath(DEF, p[0]), b = getPath(S, p[0]); if (Math.abs(a - b) > 1e-12) lines.push([p[1], cellFor(p[0]), showVal(a, p[2]), showVal(b, p[2])]); });
+  return lines;
+}
+function renderChanges() {
+  var ul = $("changeList"), lines = changeLines(); ul.textContent = "";
+  if (!lines.length) { ul.appendChild(el("li", "empty", "Nothing changed yet: every input matches your file.")); return; }
+  lines.forEach(function (l) { var li = el("li"); li.appendChild(el("strong", null, l[0])); li.appendChild(el("code", null, l[1])); li.appendChild(el("span", "num", l[2] + " → " + l[3])); ul.appendChild(li); });
+}
+$("copyChanges").addEventListener("click", function () {
+  var txt = changeLines().map(function (l) { return l[1] + "\t" + l[0] + "\t" + l[2] + " -> " + l[3]; }).join("\n") || "No changes.";
+  var msg = $("copyMsg"), fb = $("copyFallback");
+  var done = function () { msg.textContent = "Copied. Type each new value into its cell in the Excel file."; };
+  var fail = function () { fb.hidden = false; fb.value = txt; fb.select(); msg.textContent = "Copy is blocked here: the list is selected below, press Ctrl+C or ⌘C."; };
+  try { navigator.clipboard.writeText(txt).then(done, fail); } catch (e) { fail(); }
+});
+
+// ───────── variables ─────────
+var VROWS = [];
+function buildVars() {
+  var deps = {};
+  VROWS.push({ id: "U1", name: "Scenario in use", cls: "ind", unit: "list", def: "Which set of lever values is used: Conservative, Base, Optimistic or Custom.", how: "Chosen by you.", dep: "", now: function () { return S.scenario; } });
+  SPEC.levers.forEach(function (l) { VROWS.push({ id: l.id, name: l.label, cls: "ind", unit: "× base", def: l.what, how: "Universal lever (Control Panel).", dep: "U1", now: function () { return mult(levers(S)[l.key]); } }); });
+  VROWS.push({ id: "U7", name: "Model start date", cls: "ind", unit: "date", def: "First day of Q1. All quarter dates move with it.", how: "Your file: 1 Jan 2027.", dep: "", now: function () { return S.start; } });
+  VROWS.push({ id: "U8", name: "Target metric", cls: "ind", unit: "list", def: "Which result the target is checked against.", how: "Chosen by you.", dep: "", now: function () { return SPEC.targets[S.target.i].metric; } });
+  VROWS.push({ id: "U9", name: "Target value", cls: "ind", unit: "number", def: "The level the chosen metric should reach.", how: "Example: $1M revenue in Year 5.", dep: "", now: function () { return count(S.target.v); } });
+  SPEC.inputs.forEach(function (it) {
+    VROWS.push({ id: it.id, name: it.label, cls: it.used ? "ind" : "ref", unit: it.unit, def: it.definition, how: it.note, dep: "",
+      now: function () { var v = it.used ? getPath(S, "P." + it.key) : it.value; var f = function (x) { return x == null ? "–" : (/%/.test(it.fmt) ? pct(x, 2) : count(x)); }; return Array.isArray(v) ? v.map(f).join(" · ") : f(v); } });
+  });
+  SPEC.streams.forEach(function (s) {
+    [["drv", "volume driver", s.du], ["price", "price", s.pu], ["sq", "start quarter", "model quarter"], ["rq", "ramp quarters", "quarters"], ["dc", "direct cost %", "% of its revenue"]].forEach(function (a) {
+      if (a[0] === "drv" && s.drv == null) return;
+      VROWS.push({ id: s.id + "·" + a[1], name: s.label + ": " + a[1], cls: "ind", unit: a[2], def: "Revenue = base volume × driver × price × ramp.", how: "Your file.", dep: "",
+        now: function () { var v = getPath(S, "P.streams." + s.key + "." + a[0]); return a[0] === "dc" ? pct(v) : count(v); } });
+    });
+  });
+  SPEC.dependents.forEach(function (d) {
+    VROWS.push({ id: d.id, name: d.label, cls: "dep", unit: d.unit, def: d.definition, how: d.how, dep: d.deps.join(", "),
+      now: function () { var a = CUR.R[d.key]; if (!a) return ""; var u = /%/.test(d.unit) ? "%" : d.unit === "US$" ? "$" : "n"; if (d.total === "sum") return fmtUnit(u, a.reduce(function (x, y) { return x + y; }, 0)) + " total"; return fmtUnit(u, a[N - 1]) + " at Q22"; } });
+  });
+  var tb = $("vtable").tBodies[0];
+  VROWS.forEach(function (v) {
+    var tr = el("tr"); tr.appendChild(el("td", "num", v.id)); tr.appendChild(el("td", null, v.name));
+    var c = el("td"); c.appendChild(el("span", "tag " + v.cls, v.cls === "ind" ? "Independent" : v.cls === "dep" ? "Dependent" : "Not used")); tr.appendChild(c);
+    tr.appendChild(el("td", null, v.unit)); tr.appendChild(el("td", "def", v.def)); tr.appendChild(el("td", "def", v.how)); tr.appendChild(el("td", null, v.dep));
+    v.nowEl = el("td", "num"); tr.appendChild(v.nowEl); v.tr = tr; tb.appendChild(tr);
+  });
+}
+var vf = "all";
+function filterVars() {
+  var q = $("vsearch").value.trim().toLowerCase(), n = 0;
+  VROWS.forEach(function (v) { var show = (vf === "all" || v.cls === vf) && (!q || (v.id + " " + v.name + " " + v.def + " " + v.how).toLowerCase().indexOf(q) >= 0); v.tr.hidden = !show; if (show) n++; });
+  var ni = VROWS.filter(function (v) { return v.cls === "ind"; }).length, nd = VROWS.filter(function (v) { return v.cls === "dep"; }).length, nr = VROWS.filter(function (v) { return v.cls === "ref"; }).length;
+  renderVars();
+  $("vcount").textContent = n + " shown · " + ni + " independent · " + nd + " dependent · " + nr + " not used";
+}
+Array.prototype.forEach.call($("vfilter").children, function (b) { b.addEventListener("click", function () { vf = b.dataset.f; Array.prototype.forEach.call($("vfilter").children, function (x) { x.setAttribute("aria-pressed", x === b); }); filterVars(); }); });
+$("vsearch").addEventListener("input", filterVars);
+function renderVars() { VROWS.forEach(function (v) { if (!v.tr.hidden) v.nowEl.textContent = v.now(); }); }
+
+// ───────── render all ─────────
+function renderControls() {
+  Array.prototype.forEach.call(scenBox.children, function (b) { b.setAttribute("aria-pressed", b.textContent === S.scenario); });
+  var L = levers(S); SPEC.levers.forEach(function (l) { var o = lvInputs[l.key]; if (document.activeElement !== o.r) o.r.value = L[l.key]; o.o.textContent = mult(L[l.key]); });
+  tm.value = S.target.i; if (document.activeElement !== $("tValue")) $("tValue").value = S.target.v;
+  var r = E.targetResult(CUR.sum, S.target.i), met = tMet(S, CUR.sum), st = $("tStatus");
+  st.className = "pill " + (met ? "ok" : "no"); st.textContent = met ? "✓ Target met" : "✕ Target not met";
+  var isQ = S.target.i === 5 || S.target.i === 6;
+  $("tNow").textContent = "Now: " + (isQ ? (r === 99 ? "not by Q22" : "Q" + r) : (S.target.i <= 2 || S.target.i === 7 ? money(r) : count(r))) + (isQ ? "" : " · " + (tDir(S.target.i) === ">=" ? pct(r / S.target.v, 0) : pct(S.target.v / Math.max(r, 1e-9), 0)) + " of target");
+  var a = qStart(1), b = qStart(N); $("period").textContent = "Quarterly business model · " + MONTHS[a.m] + " " + a.y + " to " + MONTHS[(b.m + 2) % 12] + " " + (b.y + Math.floor((b.m + 2) / 12)) + " · 22 quarters";
+}
+function renderAll() {
+  charts.forEach(function (c) { c.render(); });
+  renderControls(); renderKpis(); renderTables(); renderChanges(); renderVars();
+  if (!$("drawer").hidden) syncDrawer();
+}
+
+// ───────── boot ─────────
+var hs = document.createElement("style"); hs.id = "hovStyle"; document.head.appendChild(hs);
+CH.forEach(function (spec) { var host = document.querySelector('.grid[data-sec="' + spec.sec + '"]'); charts.push(new Chart(spec, host)); });
+buildTables(); buildDrawer(); buildVars(); filterVars();
+CUR = compute(S); renderAll();
+var ro = new ResizeObserver(function () { if (!drag) charts.forEach(function (c) { c.render(); }); });
+document.querySelectorAll(".grid").forEach(function (g) { ro.observe(g); });
+})();
+</script>
+
+</body>
+</html>
